@@ -38,6 +38,13 @@ func run() int {
 
 	tcgClient := tcgplayer.NewClient(*tcgPublicKeyOpt, *tcgPrivateKeyOpt)
 
+	categories, err := tcgClient.GetCategoriesDetails([]int{*categoryOpt})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	fmt.Fprintln(os.Stderr, "Retrieved category details")
+
 	totalgroups, err := tcgClient.TotalGroups(*categoryOpt)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -102,9 +109,11 @@ func run() int {
 	})
 
 	var output struct {
+		Category tcgplayer.Category  `json:"category"`
 		Groups   []tcgplayer.Group   `json:"groups"`
 		Products []tcgplayer.Product `json:"products"`
 	}
+	output.Category = categories[0]
 	output.Products = products
 	output.Groups = groups
 
