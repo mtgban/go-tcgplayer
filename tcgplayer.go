@@ -277,7 +277,9 @@ func (tcg *Client) GetRequest(link string) (*BaseResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %s", err.Error(), string(data))
 	}
-	if len(response.Errors) > 0 {
+	// Return error details only if the request fully failed
+	// Otherwise return as much as possible to the callee
+	if resp.StatusCode/200 != 1 && len(response.Errors) > 0 {
 		return nil, fmt.Errorf(strings.Join(response.Errors, " "))
 	}
 
