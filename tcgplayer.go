@@ -327,7 +327,7 @@ type Printing struct {
 }
 
 func (tcg *Client) ListCategoryPrintings(category int) ([]Printing, error) {
-	resp, err := tcg.GetRequest(fmt.Sprintf("%s/%d", tcgApiCatalogCategoriesURL, category))
+	resp, err := tcg.GetRequest(fmt.Sprintf("%s/%d/printings", tcgApiCatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
