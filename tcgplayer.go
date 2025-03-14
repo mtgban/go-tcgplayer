@@ -437,7 +437,7 @@ type SKU struct {
 }
 
 func (tcg *Client) ListProductSKUs(productId int) ([]SKU, error) {
-	link := fmt.Sprintf("%s/product/%d/skus", tcgApiCatalogProductsURL, productId)
+	link := fmt.Sprintf("%s/%d/skus", tcgApiCatalogProductsURL, productId)
 	resp, err := tcg.GetRequest(link)
 	if err != nil {
 		return nil, err
