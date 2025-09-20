@@ -253,7 +253,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mtx.RUnlock()
 
 	// Check their validity
-	if token == "" || time.Now().After(expires.Add(-1*time.Hour)) {
+	if token == "" || time.Now().After(expires.Add(-5*time.Minute)) {
 		var err error
 		token, err = t.refreshToken(req.Context())
 		if err != nil {
