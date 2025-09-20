@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -542,7 +543,7 @@ func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIds []int) 
 func ints2strings(ids []int) []string {
 	out := make([]string, 0, len(ids))
 	for i := range ids {
-		out = append(out, fmt.Sprintf("%d", ids[i]))
+		out = append(out, strconv.Itoa(ids[i]))
 	}
 	return out
 }
