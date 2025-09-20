@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,21 +39,21 @@ func run() int {
 
 	tcgClient := tcgplayer.NewClient(*tcgPublicKeyOpt, *tcgPrivateKeyOpt)
 
-	categories, err := tcgClient.GetCategoriesDetails([]int{*categoryOpt})
+	categories, err := tcgClient.GetCategoriesDetails(context.Background(), []int{*categoryOpt})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "Retrieved category details")
 
-	totalgroups, err := tcgClient.TotalGroups(*categoryOpt)
+	totalgroups, err := tcgClient.TotalGroups(context.Background(), *categoryOpt)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	var groups []tcgplayer.Group
 	for i := 0; i < totalgroups; i += tcgplayer.MaxItemsInResponse {
-		out, err := tcgClient.ListAllCategoryGroups(*categoryOpt, i)
+		out, err := tcgClient.ListAllCategoryGroups(context.Background(), *categoryOpt, i)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -61,7 +62,7 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Found", len(groups), "groups")
 
-	totalProducts, err := tcgClient.TotalProducts(*categoryOpt, tcgplayer.AllProductTypes)
+	totalProducts, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -76,7 +77,7 @@ func run() int {
 		wg.Add(1)
 		go func() {
 			for page := range pages {
-				products, err := tcgClient.ListAllProducts(*categoryOpt, tcgplayer.AllProductTypes, true, page)
+				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes, true, page)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, err)
 					continue

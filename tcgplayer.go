@@ -267,8 +267,13 @@ type BaseResponse struct {
 }
 
 // Perform an authenticated GET request and partially parse the response
-func (tcg *Client) GetRequest(link string) (*BaseResponse, error) {
-	resp, err := tcg.client.Get(link)
+func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) {
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := tcg.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -293,20 +298,20 @@ func (tcg *Client) GetRequest(link string) (*BaseResponse, error) {
 	return &response, nil
 }
 
-func (tcg *Client) TotalProducts(category int, productTypes []string) (int, error) {
-	return tcg.queryTotal(tcgApiCatalogProductsURL, category, productTypes)
+func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
+	return tcg.queryTotal(ctx, tcgApiCatalogProductsURL, category, productTypes)
 }
 
-func (tcg *Client) TotalGroups(category int) (int, error) {
-	return tcg.queryTotal(tcgApiCatalogGroupsURL, category, nil)
+func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
+	return tcg.queryTotal(ctx, tcgApiCatalogGroupsURL, category, nil)
 }
 
-func (tcg *Client) TotalCategories(category int) (int, error) {
-	return tcg.queryTotal(tcgApiCatalogCategoriesURL, category, nil)
+func (tcg *Client) TotalCategories(ctx context.Context, category int) (int, error) {
+	return tcg.queryTotal(ctx, tcgApiCatalogCategoriesURL, category, nil)
 }
 
 // Retrieve how many items a full call will be
-func (tcg *Client) queryTotal(link string, category int, productTypes []string) (int, error) {
+func (tcg *Client) queryTotal(ctx context.Context, link string, category int, productTypes []string) (int, error) {
 	u, err := url.Parse(link)
 	if err != nil {
 		return 0, err
@@ -319,7 +324,7 @@ func (tcg *Client) queryTotal(link string, category int, productTypes []string) 
 	v.Set("limit", fmt.Sprint(1))
 	u.RawQuery = v.Encode()
 
-	response, err := tcg.GetRequest(u.String())
+	response, err := tcg.Get(ctx, u.String())
 	if err != nil {
 		return 0, err
 	}
@@ -333,8 +338,8 @@ type Printing struct {
 	ModifiedOn   string `json:"modifiedOn"`
 }
 
-func (tcg *Client) ListCategoryPrintings(category int) ([]Printing, error) {
-	resp, err := tcg.GetRequest(fmt.Sprintf("%s/%d/printings", tcgApiCatalogCategoriesURL, category))
+func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error) {
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", tcgApiCatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +372,7 @@ type Product struct {
 	} `json:"extendedData,omitempty"`
 }
 
-func (tcg *Client) GetProductsDetails(productIds []int, includeSkus bool) ([]Product, error) {
+func (tcg *Client) GetProductsDetails(ctx context.Context, productIds []int, includeSkus bool) ([]Product, error) {
 	if len(productIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -388,7 +393,7 @@ func (tcg *Client) GetProductsDetails(productIds []int, includeSkus bool) ([]Pro
 
 	u.RawQuery = v.Encode()
 
-	resp, err := tcg.GetRequest(u.String())
+	resp, err := tcg.Get(ctx, u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +407,7 @@ func (tcg *Client) GetProductsDetails(productIds []int, includeSkus bool) ([]Pro
 	return out, nil
 }
 
-func (tcg *Client) ListAllProducts(category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
+func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
 	u, err := url.Parse(tcgApiCatalogProductsURL)
 	if err != nil {
 		return nil, err
@@ -421,7 +426,7 @@ func (tcg *Client) ListAllProducts(category int, productTypes []string, includeS
 	v.Set("limit", fmt.Sprint(MaxItemsInResponse))
 	u.RawQuery = v.Encode()
 
-	resp, err := tcg.GetRequest(u.String())
+	resp, err := tcg.Get(ctx, u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -443,9 +448,9 @@ type SKU struct {
 	ConditionId int `json:"conditionId"`
 }
 
-func (tcg *Client) ListProductSKUs(productId int) ([]SKU, error) {
+func (tcg *Client) ListProductSKUs(ctx context.Context, productId int) ([]SKU, error) {
 	link := fmt.Sprintf("%s/%d/skus", tcgApiCatalogProductsURL, productId)
-	resp, err := tcg.GetRequest(link)
+	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +474,7 @@ type Group struct {
 	CategoryID   int    `json:"categoryId"`
 }
 
-func (tcg *Client) ListAllCategoryGroups(category, offset int) ([]Group, error) {
+func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error) {
 	u, err := url.Parse(tcgApiCatalogGroupsURL)
 	if err != nil {
 		return nil, err
@@ -480,7 +485,7 @@ func (tcg *Client) ListAllCategoryGroups(category, offset int) ([]Group, error) 
 	v.Set("limit", fmt.Sprint(MaxItemsInResponse))
 	u.RawQuery = v.Encode()
 
-	resp, err := tcg.GetRequest(u.String())
+	resp, err := tcg.Get(ctx, u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +512,7 @@ type Category struct {
 	Popularity        int    `json:"popularity"`
 }
 
-func (tcg *Client) GetCategoriesDetails(categoryIds []int) ([]Category, error) {
+func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIds []int) ([]Category, error) {
 	if len(categoryIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -515,7 +520,7 @@ func (tcg *Client) GetCategoriesDetails(categoryIds []int) ([]Category, error) {
 	ids := ints2strings(categoryIds)
 	link := tcgApiCatalogCategoriesURL + "/" + strings.Join(ids, ",")
 
-	resp, err := tcg.GetRequest(link)
+	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +551,7 @@ type ProductPriceSet struct {
 	SubTypeName    string  `json:"subTypeName"`
 }
 
-func (tcg *Client) GetMarketPricesByProducts(productIds []int) ([]ProductPriceSet, error) {
+func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIds []int) ([]ProductPriceSet, error) {
 	if len(productIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -554,7 +559,7 @@ func (tcg *Client) GetMarketPricesByProducts(productIds []int) ([]ProductPriceSe
 	ids := ints2strings(productIds)
 	link := tcgApiPricingProductURL + "/" + strings.Join(ids, ",")
 
-	resp, err := tcg.GetRequest(link)
+	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +582,7 @@ type SKUPriceSet struct {
 	DirectLowPrice     float64 `json:"directLowPrice"`
 }
 
-func (tcg *Client) GetMarketPricesBySKUs(skuIds []int) ([]SKUPriceSet, error) {
+func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIds []int) ([]SKUPriceSet, error) {
 	if len(skuIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -585,7 +590,7 @@ func (tcg *Client) GetMarketPricesBySKUs(skuIds []int) ([]SKUPriceSet, error) {
 	ids := ints2strings(skuIds)
 	link := tcgApiPricingSkuURL + "/" + strings.Join(ids, ",")
 
-	resp, err := tcg.GetRequest(link)
+	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
 	}
