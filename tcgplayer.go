@@ -323,7 +323,7 @@ type Printing struct {
 	PrintingId   int    `json:"printingId"`
 	Name         string `json:"name"`
 	DisplayOrder int    `json:"displayOrder"`
-	ModifiedOn   string `json:"modifiedOn`
+	ModifiedOn   string `json:"modifiedOn"`
 }
 
 func (tcg *Client) ListCategoryPrintings(category int) ([]Printing, error) {
