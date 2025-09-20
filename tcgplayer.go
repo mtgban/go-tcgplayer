@@ -1,6 +1,7 @@
 package tcgplayer
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -177,13 +178,20 @@ type authTransport struct {
 	mtx        sync.RWMutex
 }
 
-func (t *authTransport) requestToken() (string, time.Time, error) {
+func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, error) {
 	params := url.Values{}
 	params.Set("grant_type", "client_credentials")
 	params.Set("client_id", t.publicKey)
 	params.Set("client_secret", t.privateKey)
+	payload := strings.NewReader(params.Encode())
 
-	resp, err := cleanhttp.DefaultClient().PostForm(tcgApiTokenURL, params)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tcgApiTokenURL, payload)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := cleanhttp.DefaultClient().Do(req)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -237,7 +245,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// Only perform this action once, for the routine that got the mutex first
 		// The others will just use the updated token immediately after
 		if token == t.token {
-			t.token, t.expires, err = t.requestToken()
+			t.token, t.expires, err = t.requestToken(req.Context())
 		}
 		token = t.token
 		t.mtx.Unlock()
