@@ -1,7 +1,6 @@
 package tcgplayer
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -209,7 +208,7 @@ func (t *authTransport) requestToken() (string, time.Time, error) {
 }
 
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	err := t.limiter.Wait(context.Background())
+	err := t.limiter.Wait(req.Context())
 	if err != nil {
 		return nil, err
 	}
