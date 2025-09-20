@@ -20,20 +20,19 @@ func run() int {
 	threadOpt := flag.Int("thread", 8, "How many threads to spawn")
 	flag.Parse()
 
-	pubEnv := os.Getenv("TCGPLAYER_PUBLIC_KEY")
-	if pubEnv != "" {
-		tcgPublicKeyOpt = &pubEnv
+	pubKey, priKey := *tcgPublicKeyOpt, *tcgPrivateKeyOpt
+	if pubKey == "" {
+		pubKey = os.Getenv("TCGPLAYER_PUBLIC_KEY")
 	}
-	priEnv := os.Getenv("TCGPLAYER_PRIVATE_KEY")
-	if priEnv != "" {
-		tcgPrivateKeyOpt = &priEnv
+	if priKey == "" {
+		priKey = os.Getenv("TCGPLAYER_PRIVATE_KEY")
 	}
 
 	if *categoryOpt == 0 {
 		log.Fatalln("Missing category id")
 	}
 
-	tcgClient, err := tcgplayer.NewClient(*tcgPublicKeyOpt, *tcgPrivateKeyOpt)
+	tcgClient, err := tcgplayer.NewClient(pubKey, priKey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
