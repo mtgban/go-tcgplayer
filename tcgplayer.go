@@ -262,7 +262,13 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	return t.parent.RoundTrip(req)
+
+	// Not strictly needed, but shield for an unset parent
+	rt := t.parent
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	return rt.RoundTrip(req)
 }
 
 type BaseResponse struct {
