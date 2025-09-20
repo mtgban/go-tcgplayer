@@ -225,7 +225,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mtx.RUnlock()
 
 	// If there is a token, make sure it's still valid
-	if token != "" || time.Now().After(expires.Add(-1*time.Hour)) {
+	if token == "" || time.Now().After(expires.Add(-1*time.Hour)) {
 		// If not valid, ask for generating a new one
 		t.mtx.Lock()
 		token = ""
