@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"sync"
@@ -29,7 +28,8 @@ func run() int {
 	}
 
 	if *categoryOpt == 0 {
-		log.Fatalln("Missing category id")
+		fmt.Fprintln(os.Stderr, "Missing category id")
+		return 1
 	}
 
 	tcgClient, err := tcgplayer.NewClient(pubKey, priKey)
