@@ -153,7 +153,11 @@ type Client struct {
 	client *retryablehttp.Client
 }
 
-func NewClient(publicKey, privateKey string) *Client {
+func NewClient(publicKey, privateKey string) (*Client, error) {
+	if publicKey == "" || privateKey == "" {
+		return nil, fmt.Errorf("missing public or private key")
+	}
+
 	tcg := Client{}
 	tcg.client = retryablehttp.NewClient()
 	tcg.client.Logger = nil
@@ -167,7 +171,7 @@ func NewClient(publicKey, privateKey string) *Client {
 
 		mtx: sync.RWMutex{},
 	}
-	return &tcg
+	return &tcg, nil
 }
 
 type authTransport struct {
@@ -245,10 +249,6 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	err := t.limiter.Wait(req.Context())
 	if err != nil {
 		return nil, err
-	}
-
-	if t.publicKey == "" || t.privateKey == "" {
-		return nil, fmt.Errorf("missing public or private key")
 	}
 
 	// Load exisiting data if present

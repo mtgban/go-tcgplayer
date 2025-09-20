@@ -29,15 +29,15 @@ func run() int {
 		tcgPrivateKeyOpt = &priEnv
 	}
 
-	if *tcgPublicKeyOpt == "" || *tcgPrivateKeyOpt == "" {
-		log.Fatalln("Missing TCGplayer keys")
-	}
-
 	if *categoryOpt == 0 {
 		log.Fatalln("Missing category id")
 	}
 
-	tcgClient := tcgplayer.NewClient(*tcgPublicKeyOpt, *tcgPrivateKeyOpt)
+	tcgClient, err := tcgplayer.NewClient(*tcgPublicKeyOpt, *tcgPrivateKeyOpt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 
 	categories, err := tcgClient.GetCategoriesDetails(context.Background(), []int{*categoryOpt})
 	if err != nil {
