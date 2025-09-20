@@ -14,6 +14,7 @@ import (
 
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-retryablehttp"
+	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 )
 
@@ -169,6 +170,7 @@ func NewClient(publicKey, privateKey string) *Client {
 }
 
 type authTransport struct {
+	sf         singleflight.Group
 	parent     http.RoundTripper
 	publicKey  string
 	privateKey string
@@ -215,6 +217,25 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	return response.AccessToken, expires, nil
 }
 
+func (t *authTransport) refreshToken(ctx context.Context) (string, error) {
+	// Run this only once for concurrent requests
+	v, err, _ := t.sf.Do("oauth_token", func() (any, error) {
+		tok, exp, err := t.requestToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Update internal state under lock
+		t.mtx.Lock()
+		t.token, t.expires = tok, exp
+		t.mtx.Unlock()
+		return tok, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}
+
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	err := t.limiter.Wait(req.Context())
 	if err != nil {
@@ -225,31 +246,15 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("missing public or private key")
 	}
 
-	// Retrieve the static values
+	// Load exisiting data if present
 	t.mtx.RLock()
-	token := t.token
-	expires := t.expires
+	token, expires := t.token, t.expires
 	t.mtx.RUnlock()
 
-	// If there is a token, make sure it's still valid
+	// Check their validity
 	if token == "" || time.Now().After(expires.Add(-1*time.Hour)) {
-		// If not valid, ask for generating a new one
-		t.mtx.Lock()
-		token = ""
-		t.mtx.Unlock()
-	}
-
-	// Generate a new token
-	if token == "" {
-		t.mtx.Lock()
-		// Only perform this action once, for the routine that got the mutex first
-		// The others will just use the updated token immediately after
-		if token == t.token {
-			t.token, t.expires, err = t.requestToken(req.Context())
-		}
-		token = t.token
-		t.mtx.Unlock()
-		// If anything fails
+		var err error
+		token, err = t.refreshToken(req.Context())
 		if err != nil {
 			return nil, err
 		}
