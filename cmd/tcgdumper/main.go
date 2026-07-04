@@ -43,6 +43,10 @@ func run() int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	if len(categories) == 0 {
+		fmt.Fprintln(os.Stderr, "No category found with id", *categoryOpt)
+		return 1
+	}
 	fmt.Fprintln(os.Stderr, "Retrieved category details")
 
 	totalgroups, err := tcgClient.TotalGroups(context.Background(), *categoryOpt)
