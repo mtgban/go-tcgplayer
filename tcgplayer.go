@@ -308,7 +308,7 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return nil, fmt.Errorf("http %d: %s", resp.StatusCode, string(data))
 		}
-		return nil, fmt.Errorf("%s: %s", err.Error(), string(data))
+		return nil, fmt.Errorf("%w: %s", err, string(data))
 	}
 	// Prefer the error messages reported by the API when present,
 	// otherwise fall back to the raw status and body
