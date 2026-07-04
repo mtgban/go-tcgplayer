@@ -303,12 +303,20 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 	var response BaseResponse
 	err = json.Unmarshal(data, &response)
 	if err != nil {
+		// Not an envelope (e.g. an error page from a proxy), report
+		// the http status when the request failed
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("http %d: %s", resp.StatusCode, string(data))
+		}
 		return nil, fmt.Errorf("%s: %s", err.Error(), string(data))
 	}
-	// Return error details only if the request fully failed
-	// Otherwise return as much as possible to the callee
-	if (resp.StatusCode < 200 || resp.StatusCode >= 300) && len(response.Errors) > 0 {
-		return nil, errors.New(strings.Join(response.Errors, " "))
+	// Prefer the error messages reported by the API when present,
+	// otherwise fall back to the raw status and body
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if len(response.Errors) > 0 {
+			return nil, errors.New(strings.Join(response.Errors, " "))
+		}
+		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, string(data))
 	}
 
 	return &response, nil

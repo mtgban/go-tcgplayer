@@ -112,7 +112,7 @@ Each returns rows with the latest market pricing for the given IDs.
 Low-level `Get()` returns a `BaseResponse` envelope. High-level helpers decode `BaseResponse.Results` into typed slices.
 
 - On malformed JSON, you get a Go `error` (with the raw body snippet).
-- On non‑2xx responses, if the envelope contains API `errors`, the call returns an error composed from those messages. Otherwise you receive the `BaseResponse` and can inspect `Success`/`Errors`.
+- On non‑2xx responses, the call returns an error: composed from the envelope's API `errors` when present, otherwise from the HTTP status and raw body.
 
 ---
 
