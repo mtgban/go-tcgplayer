@@ -214,15 +214,17 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	}
 
 	var response struct {
-		AccessToken string        `json:"access_token"`
-		ExpiresIn   time.Duration `json:"expires_in"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"` // seconds
 	}
 	err = json.Unmarshal(data, &response)
 	if err != nil {
 		return "", time.Time{}, err
 	}
 
-	expires := time.Now().Add(response.ExpiresIn * time.Second)
+	// Measured from receive time, this slightly overestimates the real
+	// validity window; the refresh buffer in RoundTrip absorbs the skew
+	expires := time.Now().Add(time.Duration(response.ExpiresIn) * time.Second)
 	return response.AccessToken, expires, nil
 }
 
