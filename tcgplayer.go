@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
@@ -158,13 +157,27 @@ func NewClient(publicKey, privateKey string) (*Client, error) {
 		return nil, fmt.Errorf("missing public or private key")
 	}
 
+	tokenClient := retryablehttp.NewClient()
+	tokenClient.Logger = nil
+
 	tcg := Client{}
 	tcg.client = retryablehttp.NewClient()
 	tcg.client.Logger = nil
+	// Do not retry requests that failed acquiring a token: the token
+	// client has its own retries, going through them again would only
+	// multiply attempts and backoff on credentials that cannot work
+	tcg.client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		var terr *tokenError
+		if errors.As(err, &terr) {
+			return false, err
+		}
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	}
 	tcg.client.HTTPClient.Transport = &authTransport{
-		parent:     tcg.client.HTTPClient.Transport,
-		publicKey:  publicKey,
-		privateKey: privateKey,
+		parent:      tcg.client.HTTPClient.Transport,
+		tokenClient: tokenClient,
+		publicKey:   publicKey,
+		privateKey:  privateKey,
 
 		// Set a relatively high rate to prevent unexpected limits later
 		limiter: rate.NewLimiter(80, 20),
@@ -173,15 +186,25 @@ func NewClient(publicKey, privateKey string) (*Client, error) {
 }
 
 type authTransport struct {
-	sf         singleflight.Group
-	parent     http.RoundTripper
-	publicKey  string
-	privateKey string
-	token      string
-	expires    time.Time
-	limiter    *rate.Limiter
-	mtx        sync.RWMutex
+	sf          singleflight.Group
+	parent      http.RoundTripper
+	tokenClient *retryablehttp.Client
+	publicKey   string
+	privateKey  string
+	token       string
+	expires     time.Time
+	limiter     *rate.Limiter
+	mtx         sync.RWMutex
 }
+
+// tokenError marks a token acquisition failure that has already been
+// through the token client retries and must not be retried again
+type tokenError struct {
+	err error
+}
+
+func (e *tokenError) Error() string { return e.err.Error() }
+func (e *tokenError) Unwrap() error { return e.err }
 
 func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, error) {
 	params := url.Values{}
@@ -190,13 +213,13 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	params.Set("client_secret", t.privateKey)
 	payload := strings.NewReader(params.Encode())
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, TcgApiTokenURL, payload)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, TcgApiTokenURL, payload)
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := cleanhttp.DefaultClient().Do(req)
+	resp, err := t.tokenClient.Do(req)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -261,7 +284,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		var err error
 		token, err = t.refreshToken(req.Context())
 		if err != nil {
-			return nil, err
+			return nil, &tokenError{err}
 		}
 	}
 
