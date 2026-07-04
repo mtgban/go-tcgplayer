@@ -308,7 +308,7 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 	// Return error details only if the request fully failed
 	// Otherwise return as much as possible to the callee
 	if (resp.StatusCode < 200 || resp.StatusCode >= 300) && len(response.Errors) > 0 {
-		return nil, fmt.Errorf(strings.Join(response.Errors, " "))
+		return nil, errors.New(strings.Join(response.Errors, " "))
 	}
 
 	return &response, nil
