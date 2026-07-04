@@ -1,0 +1,62 @@
+name: Catalog dump
+
+on:
+  schedule:
+    # Midnight EST (05:00 UTC); runs at 01:00 EDT while DST is in effect
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      category:
+        description: Which category to dump
+        type: choice
+        default: all
+        options:
+          - all
+          - magic
+          - lorcana
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    # Scheduled runs dump everything, manual runs honor the selection
+    if: github.event_name != 'workflow_dispatch' || inputs.category == 'all' || inputs.category == matrix.name
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # One category at a time to keep the API request rate down
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - name: magic
+            category: 1
+          - name: lorcana
+            category: 71
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build tcgdumper
+        run: go build ./cmd/tcgdumper
+
+      - name: Dump ${{ matrix.name }} catalog
+        env:
+          TCGPLAYER_PUBLIC_KEY: ${{ secrets.TCGPLAYER_PUBLIC_KEY }}
+          TCGPLAYER_PRIVATE_KEY: ${{ secrets.TCGPLAYER_PRIVATE_KEY }}
+        run: ./tcgdumper -category ${{ matrix.category }} > tcgplayer-catalog.json
+
+      - name: Compress
+        run: xz -T0 tcgplayer-catalog.json
+
+      - name: Upload to B2
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID_DATASTORE }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY_DATASTORE }}
+        run: |
+          pipx install b2
+          b2 file upload mtgban-datastore tcgplayer-catalog.json.xz ${{ matrix.name }}/tcgplayer-catalog.json.xz
