@@ -168,8 +168,6 @@ func NewClient(publicKey, privateKey string) (*Client, error) {
 
 		// Set a relatively high rate to prevent unexpected limits later
 		limiter: rate.NewLimiter(80, 20),
-
-		mtx: sync.RWMutex{},
 	}
 	return &tcg, nil
 }
