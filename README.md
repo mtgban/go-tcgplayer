@@ -12,7 +12,7 @@ A small, practical Go client for the **TCGplayer** API (catalog & pricing). It h
 - **Rate limiting** — token‑bucket guard around every request (defaults suitable for TCGplayer).
 - **Resilient HTTP** — built on [`hashicorp/go-retryablehttp`](https://github.com/hashicorp/go-retryablehttp).
 - **Thread-safe** — safe to use from multiple goroutines.
-- **Tiny surface area** — helpers for common catalog & pricing flows, plus a low-level `GetRequest` for anything not wrapped yet.
+- **Tiny surface area** — helpers for common catalog & pricing flows, plus a low-level `Get` for anything not wrapped yet.
 
 ---
 
@@ -32,7 +32,6 @@ package main
 import (
     "context"
     "fmt"
-    "time"
 
     "github.com/mtgban/go-tcgplayer"
 )
@@ -122,15 +121,16 @@ A simple CLI is included to dump category metadata and all products for a given 
 
 ```bash
 # Build
-go build -o tcg-dump ./cmd/tcg-dump
+go build ./cmd/tcgdumper
 
-# Run (flags may vary if you moved the CLI)
-TCGPLAYER_PUBLIC_KEY=... TCGPLAYER_PRIVATE_KEY=... ./tcg-dump -category 3 -threads 8 > pokemon.json
+# Run
+TCGPLAYER_PUBLIC_KEY=... TCGPLAYER_PRIVATE_KEY=... ./tcgdumper -category 3 -thread 8 > pokemon.json
 ```
 
-Common flags:
+Flags:
 - `-category` (int, required) — Category ID to dump
-- `-threads` (int) — worker concurrency for paging products
+- `-thread` (int, default 8) — worker concurrency for paging products
+- `-pub` / `-pri` (string) — TCGplayer public/private keys; fall back to the `TCGPLAYER_PUBLIC_KEY` / `TCGPLAYER_PRIVATE_KEY` environment variables
 
 ---
 
