@@ -160,10 +160,14 @@ func NewClient(publicKey, privateKey string) (*Client, error) {
 
 	tokenClient := retryablehttp.NewClient()
 	tokenClient.Logger = nil
+	tokenClient.HTTPClient.Timeout = time.Minute
 
 	tcg := Client{}
 	tcg.client = retryablehttp.NewClient()
 	tcg.client.Logger = nil
+	// Bound each attempt so a stalled connection surfaces as a
+	// retryable error instead of hanging the caller forever
+	tcg.client.HTTPClient.Timeout = 2 * time.Minute
 	// Do not retry requests that failed acquiring a token: the token
 	// client has its own retries, going through them again would only
 	// multiply attempts and backoff on credentials that cannot work
