@@ -267,6 +267,8 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
+	// RoundTrippers must not modify the original request
+	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	// Not strictly needed, but shield for an unset parent
