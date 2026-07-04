@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/mtgban/go-tcgplayer"
 )
@@ -75,6 +76,7 @@ func run() int {
 	pages := make(chan int)
 	channel := make(chan tcgplayer.Product)
 	var wg sync.WaitGroup
+	var failedPages atomic.Int64
 
 	for i := 0; i < *threadOpt; i++ {
 		wg.Add(1)
@@ -82,7 +84,8 @@ func run() int {
 			for page := range pages {
 				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes, true, page)
 				if err != nil {
-					fmt.Fprintln(os.Stderr, err)
+					fmt.Fprintln(os.Stderr, "page at offset", page, "failed:", err)
+					failedPages.Add(1)
 					continue
 				}
 				for _, product := range products {
@@ -129,6 +132,11 @@ func run() int {
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "Dumped", len(products), "products and", len(groups), "groups")
+
+	if failed := failedPages.Load(); failed > 0 {
+		fmt.Fprintln(os.Stderr, failed, "pages failed to download, output is incomplete")
+		return 1
+	}
 
 	return 0
 }
