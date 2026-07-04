@@ -23,9 +23,10 @@ const (
 	MaxIdsInRequest    = 250
 )
 
-const (
-	tcgApiVersion = "v1.39.0"
+const tcgApiVersion = "v1.39.0"
 
+// Endpoint URLs, overridable for testing
+var (
 	TcgApiTokenURL = "https://api.tcgplayer.com/token"
 
 	TcgApiCatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/categories"
