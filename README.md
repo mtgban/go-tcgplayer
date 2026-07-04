@@ -131,6 +131,7 @@ Flags:
 - `-category` (int, required) - Category ID to dump
 - `-thread` (int, default 8) - worker concurrency for paging products
 - `-pub` / `-pri` (string) - TCGplayer public/private keys; fall back to the `TCGPLAYER_PUBLIC_KEY` / `TCGPLAYER_PRIVATE_KEY` environment variables
+- `-p` / `-pretty` - indent the JSON output (default is a single line)
 
 ---
 

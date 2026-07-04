@@ -18,6 +18,9 @@ func run() int {
 	tcgPublicKeyOpt := flag.String("pub", "", "TCGplayer public key")
 	tcgPrivateKeyOpt := flag.String("pri", "", "TCGplayer private key")
 	threadOpt := flag.Int("thread", 8, "How many threads to spawn")
+	var prettyOpt bool
+	flag.BoolVar(&prettyOpt, "pretty", false, "indent the JSON output")
+	flag.BoolVar(&prettyOpt, "p", false, "indent the JSON output (shorthand)")
 	flag.Parse()
 
 	pubKey, priKey := *tcgPublicKeyOpt, *tcgPrivateKeyOpt
@@ -129,7 +132,9 @@ func run() int {
 	output.Groups = groups
 
 	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
+	if prettyOpt {
+		enc.SetIndent("", "  ")
+	}
 	err = enc.Encode(output)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
