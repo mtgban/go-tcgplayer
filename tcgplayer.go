@@ -146,7 +146,7 @@ var AllProductTypes = []string{
 var ProductTypesSingles = []string{AllProductTypes[0]}
 
 // List of all product types containing Sealed Products
-var ProductTypesSealed = AllProductTypes[1:len(AllProductTypes)]
+var ProductTypesSealed = AllProductTypes[1:]
 
 type Client struct {
 	client *retryablehttp.Client
