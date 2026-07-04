@@ -73,10 +73,12 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
 
+	totalPages := (totalProducts + tcgplayer.MaxItemsInResponse - 1) / tcgplayer.MaxItemsInResponse
+
 	pages := make(chan int)
 	channel := make(chan tcgplayer.Product)
 	var wg sync.WaitGroup
-	var failedPages atomic.Int64
+	var failedPages, donePages atomic.Int64
 
 	for i := 0; i < *threadOpt; i++ {
 		wg.Add(1)
@@ -86,7 +88,9 @@ func run() int {
 				if err != nil {
 					fmt.Fprintln(os.Stderr, "page at offset", page, "failed:", err)
 					failedPages.Add(1)
-					continue
+				}
+				if done := donePages.Add(1); done%50 == 0 || done == int64(totalPages) {
+					fmt.Fprintln(os.Stderr, "Fetched", done, "of", totalPages, "pages")
 				}
 				for _, product := range products {
 					channel <- product
