@@ -355,8 +355,8 @@ func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
 	return tcg.queryTotal(ctx, TcgApiCatalogGroupsURL, category, nil)
 }
 
-func (tcg *Client) TotalCategories(ctx context.Context, category int) (int, error) {
-	return tcg.queryTotal(ctx, TcgApiCatalogCategoriesURL, category, nil)
+func (tcg *Client) TotalCategories(ctx context.Context) (int, error) {
+	return tcg.queryTotal(ctx, TcgApiCatalogCategoriesURL, 0, nil)
 }
 
 // Retrieve how many items a full call will be
@@ -366,7 +366,9 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 		return 0, err
 	}
 	v := url.Values{}
-	v.Set("categoryId", fmt.Sprint(category))
+	if category > 0 {
+		v.Set("categoryId", fmt.Sprint(category))
+	}
 	if productTypes != nil {
 		v.Set("productTypes", strings.Join(productTypes, ","))
 	}

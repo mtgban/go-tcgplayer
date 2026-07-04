@@ -69,7 +69,7 @@ Tokens are fetched from TCGplayer’s `/token` endpoint using `grant_type=client
 
 - **Categories**
   - `GetCategoriesDetails(ctx context.Context, ids []int) ([]Category, error)`
-  - `TotalCategories(ctx context.Context, category int) (int, error)`
+  - `TotalCategories(ctx context.Context) (int, error)`
 
 - **Groups**
   - `ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error)`
