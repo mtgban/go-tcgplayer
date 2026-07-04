@@ -424,6 +424,9 @@ type Product struct {
 }
 
 func (tcg *Client) GetProductsDetails(ctx context.Context, productIds []int, includeSkus bool) ([]Product, error) {
+	if len(productIds) == 0 {
+		return nil, errors.New("no ids in request")
+	}
 	if len(productIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -564,6 +567,9 @@ type Category struct {
 }
 
 func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIds []int) ([]Category, error) {
+	if len(categoryIds) == 0 {
+		return nil, errors.New("no ids in request")
+	}
 	if len(categoryIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -603,6 +609,9 @@ type ProductPriceSet struct {
 }
 
 func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIds []int) ([]ProductPriceSet, error) {
+	if len(productIds) == 0 {
+		return nil, errors.New("no ids in request")
+	}
 	if len(productIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
@@ -634,6 +643,9 @@ type SKUPriceSet struct {
 }
 
 func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIds []int) ([]SKUPriceSet, error) {
+	if len(skuIds) == 0 {
+		return nil, errors.New("no ids in request")
+	}
 	if len(skuIds) > MaxIdsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
