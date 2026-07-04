@@ -1,6 +1,6 @@
 # go-tcgplayer
 
-A small, practical Go client for the **TCGplayer** API (catalog & pricing). It handles **OAuth2 client‑credentials**, **automatic token refresh**, **rate limiting**, and resilient HTTP via **retryablehttp**.
+A small, practical Go client for the **TCGplayer** API (catalog & pricing). It handles **OAuth2 client-credentials**, **automatic token refresh**, **rate limiting**, and resilient HTTP via **retryablehttp**.
 
 > This repo also includes a tiny CLI to dump category groups and products.
 
@@ -8,11 +8,11 @@ A small, practical Go client for the **TCGplayer** API (catalog & pricing). It h
 
 ## Features
 
-- **Easy auth** — fetches `access_token` using client‑credentials and refreshes it before expiry.
-- **Rate limiting** — token‑bucket guard around every request (defaults suitable for TCGplayer).
-- **Resilient HTTP** — built on [`hashicorp/go-retryablehttp`](https://github.com/hashicorp/go-retryablehttp).
-- **Thread-safe** — safe to use from multiple goroutines.
-- **Tiny surface area** — helpers for common catalog & pricing flows, plus a low-level `Get` for anything not wrapped yet.
+- **Easy auth** - fetches `access_token` using client-credentials and refreshes it before expiry.
+- **Rate limiting** - token-bucket guard around every request (defaults suitable for TCGplayer).
+- **Resilient HTTP** - built on [`hashicorp/go-retryablehttp`](https://github.com/hashicorp/go-retryablehttp).
+- **Thread-safe** - safe to use from multiple goroutines.
+- **Tiny surface area** - helpers for common catalog & pricing flows, plus a low-level `Get` for anything not wrapped yet.
 
 ---
 
@@ -60,7 +60,7 @@ func main() {
 2. ensures a valid bearer token (refreshing if missing/near expiry),
 3. sets `Authorization: Bearer <token>` on each request.
 
-Tokens are fetched from TCGplayer’s `/token` endpoint using `grant_type=client_credentials`. Token acquisition is synchronized so bursts don’t stampede the token endpoint.
+Tokens are fetched from TCGplayer's `/token` endpoint using `grant_type=client_credentials`. Token acquisition is synchronized so bursts don't stampede the token endpoint.
 
 ---
 
@@ -84,9 +84,9 @@ Tokens are fetched from TCGplayer’s `/token` endpoint using `grant_type=client
 
 ### Product type filters
 
-- `AllProductTypes` – everything (Cards + sealed)
-- `ProductTypesSingles` – only `Cards`
-- `ProductTypesSealed` – sealed products (boxes, packs, etc.)
+- `AllProductTypes` - everything (Cards + sealed)
+- `ProductTypesSingles` - only `Cards`
+- `ProductTypesSealed` - sealed products (boxes, packs, etc.)
 
 ---
 
@@ -101,7 +101,7 @@ Each returns rows with the latest market pricing for the given IDs.
 
 ## Pagination & limits
 
-- **Offset + limit** paging. Use `MaxItemsInResponse` (**100**) as the page size and iterate offsets: `0, 100, 200, …`.
+- **Offset + limit** paging. Use `MaxItemsInResponse` (**100**) as the page size and iterate offsets: `0, 100, 200, ...`.
 - **Batched IDs**. Endpoints accept up to `MaxIdsInRequest` (**250**) IDs at a time. The client checks this and errors early if you exceed it.
 
 ---
@@ -111,7 +111,7 @@ Each returns rows with the latest market pricing for the given IDs.
 Low-level `Get()` returns a `BaseResponse` envelope. High-level helpers decode `BaseResponse.Results` into typed slices.
 
 - On malformed JSON, you get a Go `error` (with the raw body snippet).
-- On non‑2xx responses, the call returns an error: composed from the envelope's API `errors` when present, otherwise from the HTTP status and raw body.
+- On non-2xx responses, the call returns an error: composed from the envelope's API `errors` when present, otherwise from the HTTP status and raw body.
 
 ---
 
@@ -128,9 +128,9 @@ TCGPLAYER_PUBLIC_KEY=... TCGPLAYER_PRIVATE_KEY=... ./tcgdumper -category 3 -thre
 ```
 
 Flags:
-- `-category` (int, required) — Category ID to dump
-- `-thread` (int, default 8) — worker concurrency for paging products
-- `-pub` / `-pri` (string) — TCGplayer public/private keys; fall back to the `TCGPLAYER_PUBLIC_KEY` / `TCGPLAYER_PRIVATE_KEY` environment variables
+- `-category` (int, required) - Category ID to dump
+- `-thread` (int, default 8) - worker concurrency for paging products
+- `-pub` / `-pri` (string) - TCGplayer public/private keys; fall back to the `TCGPLAYER_PUBLIC_KEY` / `TCGPLAYER_PRIVATE_KEY` environment variables
 
 ---
 
