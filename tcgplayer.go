@@ -415,6 +415,70 @@ func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]P
 	return out, nil
 }
 
+type Condition struct {
+	ConditionId  int    `json:"conditionId"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+	DisplayOrder int    `json:"displayOrder"`
+}
+
+func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]Condition, error) {
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", TcgApiCatalogCategoriesURL, category))
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Condition
+	err = json.Unmarshal(resp.Results, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+type Language struct {
+	LanguageId   int    `json:"languageId"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbr"`
+}
+
+func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]Language, error) {
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", TcgApiCatalogCategoriesURL, category))
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Language
+	err = json.Unmarshal(resp.Results, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+type Rarity struct {
+	RarityId    int    `json:"rarityId"`
+	DisplayText string `json:"displayText"`
+	DbValue     string `json:"dbValue"`
+}
+
+func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", TcgApiCatalogCategoriesURL, category))
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Rarity
+	err = json.Unmarshal(resp.Results, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
 type Product struct {
 	ProductId  int    `json:"productId"`
 	Name       string `json:"name"`

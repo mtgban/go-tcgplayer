@@ -79,8 +79,11 @@ Tokens are fetched from TCGplayer's `/token` endpoint using `grant_type=client_c
   - `ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error)`
   - `ListProductSKUs(ctx context.Context, productId int) ([]SKU, error)`
 
-- **Printings**
+- **Category metadata** (decodes the ids referenced by SKUs)
   - `ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error)`
+  - `ListCategoryConditions(ctx context.Context, category int) ([]Condition, error)`
+  - `ListCategoryLanguages(ctx context.Context, category int) ([]Language, error)`
+  - `ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error)`
 
 ### Product type filters
 

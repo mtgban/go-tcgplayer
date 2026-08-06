@@ -319,6 +319,55 @@ func TestTotalProducts(t *testing.T) {
 	}
 }
 
+func TestListCategoryMetadata(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/categories/1/conditions", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 2, []Condition{
+			{ConditionId: 1, Name: "Near Mint", Abbreviation: "NM", DisplayOrder: 1},
+			{ConditionId: 2, Name: "Lightly Played", Abbreviation: "LP", DisplayOrder: 2},
+		})
+	})
+	mux.HandleFunc("/catalog/categories/1/languages", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 1, []Language{
+			{LanguageId: 1, Name: "English", Abbreviation: "EN"},
+		})
+	})
+	mux.HandleFunc("/catalog/categories/1/rarities", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 1, []Rarity{
+			{RarityId: 1, DisplayText: "Mythic", DbValue: "M"},
+		})
+	})
+
+	tcg := newTestClient(t, mux)
+
+	conditions, err := tcg.ListCategoryConditions(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(conditions) != 2 || conditions[0].Abbreviation != "NM" {
+		t.Errorf("conditions = %+v", conditions)
+	}
+
+	languages, err := tcg.ListCategoryLanguages(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(languages) != 1 || languages[0].Abbreviation != "EN" {
+		t.Errorf("languages = %+v", languages)
+	}
+
+	rarities, err := tcg.ListCategoryRarities(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rarities) != 1 || rarities[0].DbValue != "M" {
+		t.Errorf("rarities = %+v", rarities)
+	}
+}
+
 func TestTotalCategoriesHasNoCategoryFilter(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
