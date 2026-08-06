@@ -53,6 +53,28 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Retrieved category details")
 
+	conditions, err := tcgClient.ListCategoryConditions(context.Background(), *categoryOpt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	languages, err := tcgClient.ListCategoryLanguages(context.Background(), *categoryOpt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	printings, err := tcgClient.ListCategoryPrintings(context.Background(), *categoryOpt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	rarities, err := tcgClient.ListCategoryRarities(context.Background(), *categoryOpt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	fmt.Fprintln(os.Stderr, "Retrieved sku metadata")
+
 	totalgroups, err := tcgClient.TotalGroups(context.Background(), *categoryOpt)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -123,11 +145,19 @@ func run() int {
 	})
 
 	var output struct {
-		Category tcgplayer.Category  `json:"category"`
-		Groups   []tcgplayer.Group   `json:"groups"`
-		Products []tcgplayer.Product `json:"products"`
+		Category   tcgplayer.Category    `json:"category"`
+		Conditions []tcgplayer.Condition `json:"conditions"`
+		Languages  []tcgplayer.Language  `json:"languages"`
+		Printings  []tcgplayer.Printing  `json:"printings"`
+		Rarities   []tcgplayer.Rarity    `json:"rarities"`
+		Groups     []tcgplayer.Group     `json:"groups"`
+		Products   []tcgplayer.Product   `json:"products"`
 	}
 	output.Category = categories[0]
+	output.Conditions = conditions
+	output.Languages = languages
+	output.Printings = printings
+	output.Rarities = rarities
 	output.Products = products
 	output.Groups = groups
 
