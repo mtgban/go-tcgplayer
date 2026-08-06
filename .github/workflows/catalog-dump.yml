@@ -14,6 +14,7 @@ on:
           - all
           - magic
           - lorcana
+          - riftbound
 
 permissions:
   contents: read
@@ -34,6 +35,8 @@ jobs:
             category: 1
           - name: lorcana
             category: 71
+          - name: riftbound
+            category: 89
     steps:
       - uses: actions/checkout@v6
 
