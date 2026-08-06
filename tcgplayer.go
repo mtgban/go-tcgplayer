@@ -121,8 +121,14 @@ const (
 	CategoryDragonBallSuperFusionWorld
 	CategoryUnionArena
 	CategoryTCGplayerSupplies
-	_
-	_
+	CategoryElestrals
+	CategoryNeopetsBattledome
+	CategoryPokemonJapan
+	CategoryGundam
+	CategoryHololive
+	CategoryGodzilla
+	CategoryRiftbound
+	CategoryCookieRunBraverse
 )
 
 // List of all possible product types
