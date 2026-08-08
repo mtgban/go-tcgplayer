@@ -1,4 +1,5 @@
 name: Catalog dump
+run-name: Catalog dump (${{ inputs.category || 'all' }})
 
 on:
   schedule:
@@ -20,9 +21,34 @@ permissions:
   contents: read
 
 jobs:
+  # Scheduled runs dump everything, manual runs honor the selection. The
+  # matrix context is not available in a job level if, so the selection is
+  # applied by building the matrix itself.
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - id: select
+        env:
+          SELECTED: ${{ inputs.category || 'all' }}
+        run: |
+          categories='[
+            {"name": "magic", "category": 1},
+            {"name": "lorcana", "category": 71},
+            {"name": "riftbound", "category": 89}
+          ]'
+          if [ "$SELECTED" = all ]; then
+            selection=$(jq -c . <<< "$categories")
+          else
+            selection=$(jq -c --arg name "$SELECTED" \
+              '[.[] | select(.name == $name)]' <<< "$categories")
+          fi
+          echo "Dumping: $selection"
+          echo "matrix=$selection" >> "$GITHUB_OUTPUT"
+
   dump:
-    # Scheduled runs dump everything, manual runs honor the selection
-    if: github.event_name != 'workflow_dispatch' || inputs.category == 'all' || inputs.category == matrix.name
+    needs: select
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -30,13 +56,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        include:
-          - name: magic
-            category: 1
-          - name: lorcana
-            category: 71
-          - name: riftbound
-            category: 89
+        include: ${{ fromJSON(needs.select.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
 
