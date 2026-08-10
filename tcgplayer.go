@@ -488,6 +488,11 @@ type Product struct {
 	URL        string `json:"url"`
 	ModifiedOn string `json:"modifiedOn"`
 
+	// Never returned by the API, which does not report the product type a
+	// product is filed under; tcgdumper stamps the type it fetched the
+	// product by, so it is present in catalog dumps only
+	ProductType string `json:"productType,omitempty"`
+
 	// Only available for catalog API calls
 	Skus []SKU `json:"skus,omitempty"`
 	// Only available for catalog API calls

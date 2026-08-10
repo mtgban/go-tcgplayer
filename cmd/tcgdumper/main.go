@@ -91,16 +91,46 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Found", len(groups), "groups")
 
-	totalProducts, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes)
+	// The API never reports which product type a product is filed under,
+	// so the type must be established at fetch time: page each type
+	// separately and stamp the products with the type they answered to.
+	type page struct {
+		productType string
+		offset      int
+	}
+	var jobs []page
+	totalProducts := 0
+	for _, productType := range tcgplayer.AllProductTypes {
+		total, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, []string{productType})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		if total == 0 {
+			continue
+		}
+		fmt.Fprintln(os.Stderr, "Found", total, productType, "products")
+		totalProducts += total
+		for i := 0; i < total; i += tcgplayer.MaxItemsInResponse {
+			jobs = append(jobs, page{productType, i})
+		}
+	}
+	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
+
+	// The per-type totals should partition the union; a drift means a
+	// product carries several types (duplicated below) or none (missed)
+	unionTotal, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
+	if unionTotal != totalProducts {
+		fmt.Fprintln(os.Stderr, "per-type totals sum to", totalProducts, "but the union counts", unionTotal)
+	}
 
-	totalPages := (totalProducts + tcgplayer.MaxItemsInResponse - 1) / tcgplayer.MaxItemsInResponse
+	totalPages := len(jobs)
 
-	pages := make(chan int)
+	pages := make(chan page)
 	channel := make(chan tcgplayer.Product)
 	var wg sync.WaitGroup
 	var failedPages, donePages atomic.Int64
@@ -108,16 +138,17 @@ func run() int {
 	for i := 0; i < *threadOpt; i++ {
 		wg.Add(1)
 		go func() {
-			for page := range pages {
-				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes, true, page)
+			for job := range pages {
+				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, []string{job.productType}, true, job.offset)
 				if err != nil {
-					fmt.Fprintln(os.Stderr, "page at offset", page, "failed:", err)
+					fmt.Fprintln(os.Stderr, job.productType, "page at offset", job.offset, "failed:", err)
 					failedPages.Add(1)
 				}
 				if done := donePages.Add(1); done%50 == 0 || done == int64(totalPages) {
 					fmt.Fprintln(os.Stderr, "Fetched", done, "of", totalPages, "pages")
 				}
 				for _, product := range products {
+					product.ProductType = job.productType
 					channel <- product
 				}
 			}
@@ -126,8 +157,8 @@ func run() int {
 	}
 
 	go func() {
-		for i := 0; i < totalProducts; i += tcgplayer.MaxItemsInResponse {
-			pages <- i
+		for _, job := range jobs {
+			pages <- job
 		}
 		close(pages)
 
