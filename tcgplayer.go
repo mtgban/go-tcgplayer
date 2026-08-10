@@ -131,9 +131,12 @@ const (
 	CategoryCookieRunBraverse
 )
 
+// The product type singles are filed under; every other type is sealed
+const ProductTypeCards = "Cards"
+
 // List of all possible product types
 var AllProductTypes = []string{
-	"Cards",
+	ProductTypeCards,
 	"Booster Box",
 	"Booster Pack",
 	"Sealed Products",
@@ -150,7 +153,7 @@ var AllProductTypes = []string{
 }
 
 // List of all product types containing Singles
-var ProductTypesSingles = []string{AllProductTypes[0]}
+var ProductTypesSingles = []string{ProductTypeCards}
 
 // List of all product types containing Sealed Products
 var ProductTypesSealed = AllProductTypes[1:]
@@ -518,6 +521,15 @@ type Product struct {
 		DisplayName string `json:"displayName"`
 		Value       string `json:"value"`
 	} `json:"extendedData,omitempty"`
+}
+
+// Sealed reports whether a dumped product is anything but a single card.
+// The comparison is with the singles type rather than the sealed ones, so
+// a product type introduced after AllProductTypes was written lands on
+// the sealed side instead of silently passing as a single - as does a
+// product missing the type, which only dumps predating the field carry.
+func (p Product) Sealed() bool {
+	return p.ProductType != ProductTypeCards
 }
 
 func (tcg *Client) GetProductsDetails(ctx context.Context, productIds []int, includeSkus bool) ([]Product, error) {

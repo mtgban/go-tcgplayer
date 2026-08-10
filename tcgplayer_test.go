@@ -391,6 +391,26 @@ func TestTotalCategoriesHasNoCategoryFilter(t *testing.T) {
 	}
 }
 
+func TestProductSealed(t *testing.T) {
+	for _, test := range []struct {
+		productType string
+		want        bool
+	}{
+		{ProductTypeCards, false},
+		{"Sealed Products", true},
+		{"Booster Box", true},
+		// A type added after AllProductTypes was written
+		{"Collector Sampler Bundle", true},
+		// A dump predating the field
+		{"", true},
+	} {
+		p := Product{ProductType: test.productType}
+		if got := p.Sealed(); got != test.want {
+			t.Errorf("Sealed with type %q = %t, want %t", test.productType, got, test.want)
+		}
+	}
+}
+
 func TestInts2Strings(t *testing.T) {
 	got := ints2strings([]int{1, 20, 300})
 	want := []string{"1", "20", "300"}
