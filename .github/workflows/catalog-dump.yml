@@ -76,6 +76,16 @@ jobs:
       - name: Compress
         run: xz -T0 tcgplayer-catalog.json
 
+      # The B2 upload overwrites the same object daily, so the run keeps
+      # the only per-run history: the exact dump a datastore build consumed,
+      # downloadable without bucket credentials, surviving a failed upload.
+      - name: Keep a copy on the run
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}-tcgplayer-catalog.json.xz
+          path: tcgplayer-catalog.json.xz
+          retention-days: 7
+
       - name: Upload to B2
         env:
           B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID_DATASTORE }}
