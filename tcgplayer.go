@@ -318,6 +318,17 @@ type BaseResponse struct {
 	Results    json.RawMessage `json:"results"`
 }
 
+// APIError is a request the API answered with an error envelope, keeping
+// the http status the message arrived under
+type APIError struct {
+	StatusCode int
+	Messages   []string
+}
+
+func (e *APIError) Error() string {
+	return strings.Join(e.Messages, " ")
+}
+
 // Perform an authenticated GET request and partially parse the response
 func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) {
 	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, link, nil)
@@ -350,7 +361,7 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 	// otherwise fall back to the raw status and body
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if len(response.Errors) > 0 {
-			return nil, errors.New(strings.Join(response.Errors, " "))
+			return nil, &APIError{StatusCode: resp.StatusCode, Messages: response.Errors}
 		}
 		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, string(data))
 	}
@@ -387,6 +398,12 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 	u.RawQuery = v.Encode()
 
 	response, err := tcg.Get(ctx, u.String())
+	// The API reports an empty result set as a not-found error rather
+	// than a zero count, so for a total that is the answer, not a failure
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		return 0, nil
+	}
 	if err != nil {
 		return 0, err
 	}
