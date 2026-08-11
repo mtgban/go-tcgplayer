@@ -16,6 +16,7 @@ on:
           - magic
           - lorcana
           - riftbound
+          - onepiece
 
 permissions:
   contents: read
@@ -36,7 +37,8 @@ jobs:
           categories='[
             {"name": "magic", "category": 1},
             {"name": "lorcana", "category": 71},
-            {"name": "riftbound", "category": 89}
+            {"name": "riftbound", "category": 89},
+            {"name": "onepiece", "category": 68}
           ]'
           if [ "$SELECTED" = all ]; then
             selection=$(jq -c . <<< "$categories")
