@@ -17,6 +17,8 @@ on:
           - lorcana
           - riftbound
           - onepiece
+          - yugioh
+          - fleshandblood
 
 permissions:
   contents: read
@@ -38,7 +40,9 @@ jobs:
             {"name": "magic", "category": 1},
             {"name": "lorcana", "category": 71},
             {"name": "riftbound", "category": 89},
-            {"name": "onepiece", "category": 68}
+            {"name": "onepiece", "category": 68},
+            {"name": "yugioh", "category": 2},
+            {"name": "fleshandblood", "category": 62}
           ]'
           if [ "$SELECTED" = all ]; then
             selection=$(jq -c . <<< "$categories")
