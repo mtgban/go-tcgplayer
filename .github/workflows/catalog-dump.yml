@@ -19,6 +19,7 @@ on:
           - onepiece
           - yugioh
           - fleshandblood
+          - pokemon
 
 permissions:
   contents: read
@@ -42,7 +43,8 @@ jobs:
             {"name": "riftbound", "category": 89},
             {"name": "onepiece", "category": 68},
             {"name": "yugioh", "category": 2},
-            {"name": "fleshandblood", "category": 62}
+            {"name": "fleshandblood", "category": 62},
+            {"name": "pokemon", "category": 3}
           ]'
           if [ "$SELECTED" = all ]; then
             selection=$(jq -c . <<< "$categories")
