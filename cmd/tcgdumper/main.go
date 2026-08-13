@@ -172,18 +172,10 @@ func run() int {
 	}
 
 	sort.Slice(products, func(i, j int) bool {
-		return products[i].ProductId < products[j].ProductId
+		return products[i].ProductID < products[j].ProductID
 	})
 
-	var output struct {
-		Category   tcgplayer.Category    `json:"category"`
-		Conditions []tcgplayer.Condition `json:"conditions"`
-		Languages  []tcgplayer.Language  `json:"languages"`
-		Printings  []tcgplayer.Printing  `json:"printings"`
-		Rarities   []tcgplayer.Rarity    `json:"rarities"`
-		Groups     []tcgplayer.Group     `json:"groups"`
-		Products   []tcgplayer.Product   `json:"products"`
-	}
+	var output tcgplayer.CatalogDump
 	output.Category = categories[0]
 	output.Conditions = conditions
 	output.Languages = languages
