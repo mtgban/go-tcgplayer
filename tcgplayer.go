@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,21 +21,21 @@ import (
 
 const (
 	MaxItemsInResponse = 100
-	MaxIdsInRequest    = 250
+	MaxIDsInRequest    = 250
 )
 
 const tcgApiVersion = "v1.39.0"
 
 // Endpoint URLs, overridable for testing
 var (
-	TcgApiTokenURL = "https://api.tcgplayer.com/token"
+	TCGAPITokenURL = "https://api.tcgplayer.com/token"
 
-	TcgApiCatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/categories"
-	TcgApiCatalogProductsURL   = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/products"
-	TcgApiCatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/groups"
+	TCGAPICatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/categories"
+	TCGAPICatalogProductsURL   = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/products"
+	TCGAPICatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/groups"
 
-	TcgApiPricingProductURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/product"
-	TcgApiPricingSkuURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/sku"
+	TCGAPIPricingProductURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/product"
+	TCGAPIPricingSkuURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/sku"
 )
 
 // All active categories on the platform
@@ -224,7 +225,7 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	params.Set("client_secret", t.privateKey)
 	payload := strings.NewReader(params.Encode())
 
-	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, TcgApiTokenURL, payload)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, TCGAPITokenURL, payload)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -370,15 +371,15 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 }
 
 func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
-	return tcg.queryTotal(ctx, TcgApiCatalogProductsURL, category, productTypes)
+	return tcg.queryTotal(ctx, TCGAPICatalogProductsURL, category, productTypes)
 }
 
 func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
-	return tcg.queryTotal(ctx, TcgApiCatalogGroupsURL, category, nil)
+	return tcg.queryTotal(ctx, TCGAPICatalogGroupsURL, category, nil)
 }
 
 func (tcg *Client) TotalCategories(ctx context.Context) (int, error) {
-	return tcg.queryTotal(ctx, TcgApiCatalogCategoriesURL, 0, nil)
+	return tcg.queryTotal(ctx, TCGAPICatalogCategoriesURL, 0, nil)
 }
 
 // Retrieve how many items a full call will be
@@ -411,14 +412,14 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 }
 
 type Printing struct {
-	PrintingId   int    `json:"printingId"`
+	PrintingID   int    `json:"printingId"`
 	Name         string `json:"name"`
 	DisplayOrder int    `json:"displayOrder"`
 	ModifiedOn   string `json:"modifiedOn"`
 }
 
 func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", TcgApiCatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", TCGAPICatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -433,14 +434,14 @@ func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]P
 }
 
 type Condition struct {
-	ConditionId  int    `json:"conditionId"`
+	ConditionID  int    `json:"conditionId"`
 	Name         string `json:"name"`
 	Abbreviation string `json:"abbreviation"`
 	DisplayOrder int    `json:"displayOrder"`
 }
 
 func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]Condition, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", TcgApiCatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", TCGAPICatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -455,13 +456,13 @@ func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]
 }
 
 type Language struct {
-	LanguageId   int    `json:"languageId"`
+	LanguageID   int    `json:"languageId"`
 	Name         string `json:"name"`
 	Abbreviation string `json:"abbr"`
 }
 
 func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]Language, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", TcgApiCatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", TCGAPICatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -476,13 +477,13 @@ func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]L
 }
 
 type Rarity struct {
-	RarityId    int    `json:"rarityId"`
+	RarityID    int    `json:"rarityId"`
 	DisplayText string `json:"displayText"`
 	DbValue     string `json:"dbValue"`
 }
 
 func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", TcgApiCatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", TCGAPICatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -497,11 +498,11 @@ func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Ra
 }
 
 type Product struct {
-	ProductId  int    `json:"productId"`
+	ProductID  int    `json:"productId"`
 	Name       string `json:"name"`
 	CleanName  string `json:"cleanName"`
-	ImageUrl   string `json:"imageUrl"`
-	GroupId    int    `json:"groupId"`
+	ImageURL   string `json:"imageUrl"`
+	GroupID    int    `json:"groupId"`
 	URL        string `json:"url"`
 	ModifiedOn string `json:"modifiedOn"`
 
@@ -520,16 +521,16 @@ type Product struct {
 	} `json:"extendedData,omitempty"`
 }
 
-func (tcg *Client) GetProductsDetails(ctx context.Context, productIds []int, includeSkus bool) ([]Product, error) {
-	if len(productIds) == 0 {
+func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, includeSkus bool) ([]Product, error) {
+	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
-	if len(productIds) > MaxIdsInRequest {
+	if len(productIDs) > MaxIDsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
 
-	ids := ints2strings(productIds)
-	link := TcgApiCatalogProductsURL + "/" + strings.Join(ids, ",")
+	ids := ints2strings(productIDs)
+	link := TCGAPICatalogProductsURL + "/" + strings.Join(ids, ",")
 
 	u, err := url.Parse(link)
 	if err != nil {
@@ -559,7 +560,7 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIds []int, inc
 }
 
 func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
-	u, err := url.Parse(TcgApiCatalogProductsURL)
+	u, err := url.Parse(TCGAPICatalogProductsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -592,15 +593,15 @@ func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTyp
 }
 
 type SKU struct {
-	SkuId       int `json:"skuId"`
-	ProductId   int `json:"productId"`
-	LanguageId  int `json:"languageId"`
-	PrintingId  int `json:"printingId"`
-	ConditionId int `json:"conditionId"`
+	SKUID       int `json:"skuId"`
+	ProductID   int `json:"productId"`
+	LanguageID  int `json:"languageId"`
+	PrintingID  int `json:"printingId"`
+	ConditionID int `json:"conditionId"`
 }
 
 func (tcg *Client) ListProductSKUs(ctx context.Context, productId int) ([]SKU, error) {
-	link := fmt.Sprintf("%s/%d/skus", TcgApiCatalogProductsURL, productId)
+	link := fmt.Sprintf("%s/%d/skus", TCGAPICatalogProductsURL, productId)
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
@@ -626,7 +627,7 @@ type Group struct {
 }
 
 func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error) {
-	u, err := url.Parse(TcgApiCatalogGroupsURL)
+	u, err := url.Parse(TCGAPICatalogGroupsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -663,16 +664,16 @@ type Category struct {
 	Popularity        int    `json:"popularity"`
 }
 
-func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIds []int) ([]Category, error) {
-	if len(categoryIds) == 0 {
+func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []int) ([]Category, error) {
+	if len(categoryIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
-	if len(categoryIds) > MaxIdsInRequest {
+	if len(categoryIDs) > MaxIDsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
 
-	ids := ints2strings(categoryIds)
-	link := TcgApiCatalogCategoriesURL + "/" + strings.Join(ids, ",")
+	ids := ints2strings(categoryIDs)
+	link := TCGAPICatalogCategoriesURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -697,7 +698,7 @@ func ints2strings(ids []int) []string {
 }
 
 type ProductPriceSet struct {
-	ProductId      int     `json:"productId"`
+	ProductID      int     `json:"productId"`
 	LowPrice       float64 `json:"lowPrice"`
 	MarketPrice    float64 `json:"marketPrice"`
 	MidPrice       float64 `json:"midPrice"`
@@ -705,16 +706,16 @@ type ProductPriceSet struct {
 	SubTypeName    string  `json:"subTypeName"`
 }
 
-func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIds []int) ([]ProductPriceSet, error) {
-	if len(productIds) == 0 {
+func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []int) ([]ProductPriceSet, error) {
+	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
-	if len(productIds) > MaxIdsInRequest {
+	if len(productIDs) > MaxIDsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
 
-	ids := ints2strings(productIds)
-	link := TcgApiPricingProductURL + "/" + strings.Join(ids, ",")
+	ids := ints2strings(productIDs)
+	link := TCGAPIPricingProductURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -731,7 +732,7 @@ func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIds []i
 }
 
 type SKUPriceSet struct {
-	SkuId              int     `json:"skuId"`
+	SKUID              int     `json:"skuId"`
 	LowPrice           float64 `json:"lowPrice"`
 	LowestShipping     float64 `json:"lowestShipping"`
 	LowestListingPrice float64 `json:"lowestListingPrice"`
@@ -739,16 +740,16 @@ type SKUPriceSet struct {
 	DirectLowPrice     float64 `json:"directLowPrice"`
 }
 
-func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIds []int) ([]SKUPriceSet, error) {
-	if len(skuIds) == 0 {
+func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIDs []int) ([]SKUPriceSet, error) {
+	if len(skuIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
-	if len(skuIds) > MaxIdsInRequest {
+	if len(skuIDs) > MaxIDsInRequest {
 		return nil, errors.New("too many ids in request")
 	}
 
-	ids := ints2strings(skuIds)
-	link := TcgApiPricingSkuURL + "/" + strings.Join(ids, ",")
+	ids := ints2strings(skuIDs)
+	link := TCGAPIPricingSkuURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -762,4 +763,60 @@ func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIds []int) ([]S
 	}
 
 	return out, nil
+}
+
+// CatalogDump is the envelope cmd/tcgdumper writes for a category. Naming it
+// here keeps the program that writes a dump and the programs that read one on
+// a single definition of the format, rather than each carrying its own.
+type CatalogDump struct {
+	Category   Category    `json:"category"`
+	Conditions []Condition `json:"conditions"`
+	Languages  []Language  `json:"languages"`
+	Printings  []Printing  `json:"printings"`
+	Rarities   []Rarity    `json:"rarities"`
+	Groups     []Group     `json:"groups"`
+	Products   []Product   `json:"products"`
+}
+
+// Extended reads the extendedData entry a product carries under name, or ""
+// when it carries none. The catalog files a card's collector number, rarity
+// and the rest there rather than as fields of their own.
+func (p Product) Extended(name string) string {
+	for _, e := range p.ExtendedData {
+		if e.Name == name {
+			return e.Value
+		}
+	}
+	return ""
+}
+
+// ReleaseDate is the group's publish date without the time of day.
+func (g Group) ReleaseDate() string {
+	return strings.SplitN(g.PublishedOn, "T", 2)[0]
+}
+
+// PrintingNames maps each product to the distinct printing names its skus
+// carry, ordered as the dump lists the category's printings. A printing the
+// dump does not list for a product is one that product is not sold in.
+func (d *CatalogDump) PrintingNames() map[int][]string {
+	name := map[int]string{}
+	rank := map[string]int{}
+	for i, printing := range d.Printings {
+		name[printing.PrintingID] = printing.Name
+		rank[printing.Name] = i
+	}
+	out := map[int][]string{}
+	for _, product := range d.Products {
+		var names []string
+		for _, sku := range product.Skus {
+			n := name[sku.PrintingID]
+			if n == "" || slices.Contains(names, n) {
+				continue
+			}
+			names = append(names, n)
+		}
+		slices.SortFunc(names, func(a, b string) int { return rank[a] - rank[b] })
+		out[product.ProductID] = names
+	}
+	return out
 }

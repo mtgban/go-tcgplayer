@@ -26,24 +26,24 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 		v    *string
 		orig string
 	}{
-		{&TcgApiTokenURL, TcgApiTokenURL},
-		{&TcgApiCatalogCategoriesURL, TcgApiCatalogCategoriesURL},
-		{&TcgApiCatalogProductsURL, TcgApiCatalogProductsURL},
-		{&TcgApiCatalogGroupsURL, TcgApiCatalogGroupsURL},
-		{&TcgApiPricingProductURL, TcgApiPricingProductURL},
-		{&TcgApiPricingSkuURL, TcgApiPricingSkuURL},
+		{&TCGAPITokenURL, TCGAPITokenURL},
+		{&TCGAPICatalogCategoriesURL, TCGAPICatalogCategoriesURL},
+		{&TCGAPICatalogProductsURL, TCGAPICatalogProductsURL},
+		{&TCGAPICatalogGroupsURL, TCGAPICatalogGroupsURL},
+		{&TCGAPIPricingProductURL, TCGAPIPricingProductURL},
+		{&TCGAPIPricingSkuURL, TCGAPIPricingSkuURL},
 	}
 	t.Cleanup(func() {
 		for _, s := range saved {
 			*s.v = s.orig
 		}
 	})
-	TcgApiTokenURL = srv.URL + "/token"
-	TcgApiCatalogCategoriesURL = srv.URL + "/catalog/categories"
-	TcgApiCatalogProductsURL = srv.URL + "/catalog/products"
-	TcgApiCatalogGroupsURL = srv.URL + "/catalog/groups"
-	TcgApiPricingProductURL = srv.URL + "/pricing/product"
-	TcgApiPricingSkuURL = srv.URL + "/pricing/sku"
+	TCGAPITokenURL = srv.URL + "/token"
+	TCGAPICatalogCategoriesURL = srv.URL + "/catalog/categories"
+	TCGAPICatalogProductsURL = srv.URL + "/catalog/products"
+	TCGAPICatalogGroupsURL = srv.URL + "/catalog/groups"
+	TCGAPIPricingProductURL = srv.URL + "/pricing/product"
+	TCGAPIPricingSkuURL = srv.URL + "/pricing/sku"
 
 	tcg, err := NewClient("test-public", "test-private")
 	if err != nil {
@@ -111,7 +111,7 @@ func TestTokenFetchedOnceForConcurrentRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := tcg.Get(context.Background(), TcgApiCatalogProductsURL); err != nil {
+			if _, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -139,7 +139,7 @@ func TestTokenRefreshedNearExpiry(t *testing.T) {
 	tcg := newTestClient(t, mux)
 
 	for i := 0; i < 2; i++ {
-		if _, err := tcg.Get(context.Background(), TcgApiCatalogProductsURL); err != nil {
+		if _, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -165,7 +165,7 @@ func TestBadCredentialsAreNotRetried(t *testing.T) {
 	tcg.client.RetryWaitMin = time.Millisecond
 	tcg.client.RetryWaitMax = time.Millisecond
 
-	_, err := tcg.Get(context.Background(), TcgApiCatalogProductsURL)
+	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error with bad credentials")
 	}
@@ -191,7 +191,7 @@ func TestGetErrorFromEnvelope(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	_, err := tcg.Get(context.Background(), TcgApiCatalogProductsURL)
+	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error on non-2xx response")
 	}
@@ -213,7 +213,7 @@ func TestGetErrorWithEmptyEnvelope(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	_, err := tcg.Get(context.Background(), TcgApiCatalogProductsURL)
+	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error on non-2xx response with empty errors")
 	}
@@ -235,8 +235,8 @@ func TestGetProductsDetails(t *testing.T) {
 			t.Errorf("includeSkus = %q, want %q", got, "true")
 		}
 		writeEnvelope(w, 2, []Product{
-			{ProductId: 12, Name: "Foo"},
-			{ProductId: 34, Name: "Bar"},
+			{ProductID: 12, Name: "Foo"},
+			{ProductID: 34, Name: "Bar"},
 		})
 	})
 
@@ -249,7 +249,7 @@ func TestGetProductsDetails(t *testing.T) {
 	if len(products) != 2 {
 		t.Fatalf("got %d products, want 2", len(products))
 	}
-	if products[0].ProductId != 12 || products[0].Name != "Foo" {
+	if products[0].ProductID != 12 || products[0].Name != "Foo" {
 		t.Errorf("products[0] = %+v", products[0])
 	}
 }
@@ -260,7 +260,7 @@ func TestBatchedIdBounds(t *testing.T) {
 		t.Errorf("unexpected request to %s", r.URL)
 	}))
 
-	tooMany := make([]int, MaxIdsInRequest+1)
+	tooMany := make([]int, MaxIDsInRequest+1)
 
 	ctx := context.Background()
 	for name, call := range map[string]func([]int) error{
@@ -285,7 +285,7 @@ func TestBatchedIdBounds(t *testing.T) {
 			t.Errorf("%s: expected error for empty ids", name)
 		}
 		if err := call(tooMany); err == nil {
-			t.Errorf("%s: expected error for more than %d ids", name, MaxIdsInRequest)
+			t.Errorf("%s: expected error for more than %d ids", name, MaxIDsInRequest)
 		}
 	}
 }
@@ -305,7 +305,7 @@ func TestTotalProducts(t *testing.T) {
 		if got := r.URL.Query().Get("limit"); got != "1" {
 			t.Errorf("limit = %q, want %q", got, "1")
 		}
-		writeEnvelope(w, 4321, []Product{{ProductId: 1}})
+		writeEnvelope(w, 4321, []Product{{ProductID: 1}})
 	})
 
 	tcg := newTestClient(t, mux)
@@ -326,18 +326,18 @@ func TestListCategoryMetadata(t *testing.T) {
 	})
 	mux.HandleFunc("/catalog/categories/1/conditions", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 2, []Condition{
-			{ConditionId: 1, Name: "Near Mint", Abbreviation: "NM", DisplayOrder: 1},
-			{ConditionId: 2, Name: "Lightly Played", Abbreviation: "LP", DisplayOrder: 2},
+			{ConditionID: 1, Name: "Near Mint", Abbreviation: "NM", DisplayOrder: 1},
+			{ConditionID: 2, Name: "Lightly Played", Abbreviation: "LP", DisplayOrder: 2},
 		})
 	})
 	mux.HandleFunc("/catalog/categories/1/languages", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 1, []Language{
-			{LanguageId: 1, Name: "English", Abbreviation: "EN"},
+			{LanguageID: 1, Name: "English", Abbreviation: "EN"},
 		})
 	})
 	mux.HandleFunc("/catalog/categories/1/rarities", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 1, []Rarity{
-			{RarityId: 1, DisplayText: "Mythic", DbValue: "M"},
+			{RarityID: 1, DisplayText: "Mythic", DbValue: "M"},
 		})
 	})
 
