@@ -1,3 +1,5 @@
+// Package tcgplayer is a client for the TCGplayer catalog and pricing
+// API, and defines the format of the catalog dumps cmd/tcgdumper writes.
 package tcgplayer
 
 import (
@@ -20,8 +22,10 @@ import (
 )
 
 const (
+	// MaxItemsInResponse is the largest page a listing endpoint returns
 	MaxItemsInResponse = 100
-	MaxIDsInRequest    = 250
+	// MaxIDsInRequest is the most ids a batched endpoint accepts
+	MaxIDsInRequest = 250
 )
 
 const tcgAPIVersion = "v1.39.0"
@@ -132,7 +136,7 @@ const (
 	CategoryCookieRunBraverse
 )
 
-// List of all possible product types
+// AllProductTypes lists every product type the catalog files products under
 var AllProductTypes = []string{
 	"Cards",
 	"Booster Box",
@@ -150,16 +154,23 @@ var AllProductTypes = []string{
 	"Booster Battle Pack",
 }
 
-// List of all product types containing Singles
+// ProductTypesSingles lists the product types holding single cards
 var ProductTypesSingles = []string{AllProductTypes[0]}
 
-// List of all product types containing Sealed Products
+// ProductTypesSealed lists the product types holding sealed products
 var ProductTypesSealed = AllProductTypes[1:]
 
+// Client talks to the TCGplayer API, holding the credentials every call
+// needs. It acquires and refreshes bearer tokens on demand, holds requests
+// to a rate limit, and retries the ones that fail transiently. A Client is
+// safe for concurrent use.
 type Client struct {
 	client *retryablehttp.Client
 }
 
+// NewClient returns a Client authenticating with the given key pair. Both
+// keys are required. No request is made here: the first token is acquired
+// by the first call that needs one.
 func NewClient(publicKey, privateKey string) (*Client, error) {
 	if publicKey == "" || privateKey == "" {
 		return nil, fmt.Errorf("missing public or private key")
@@ -280,6 +291,8 @@ func (t *authTransport) refreshToken(ctx context.Context) (string, error) {
 	return v.(string), nil
 }
 
+// RoundTrip waits for the rate limiter, then attaches a valid bearer token
+// to a copy of req, acquiring or refreshing one when needed
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	err := t.limiter.Wait(req.Context())
 	if err != nil {
@@ -312,6 +325,8 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return rt.RoundTrip(req)
 }
 
+// BaseResponse is the envelope every endpoint wraps its payload in. Results
+// is left raw for the caller to decode into the type the endpoint returns.
 type BaseResponse struct {
 	TotalItems int             `json:"totalItems"`
 	Success    bool            `json:"success"`
@@ -326,11 +341,13 @@ type APIError struct {
 	Messages   []string
 }
 
+// Error joins the messages the API reported
 func (e *APIError) Error() string {
 	return strings.Join(e.Messages, " ")
 }
 
-// Perform an authenticated GET request and partially parse the response
+// Get performs an authenticated GET request against link and parses the
+// response envelope, leaving its payload for the caller to decode
 func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) {
 	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
@@ -370,19 +387,23 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 	return &response, nil
 }
 
+// TotalProducts reports how many products a category holds, optionally
+// narrowed to the given product types
 func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
 	return tcg.queryTotal(ctx, CatalogProductsURL, category, productTypes)
 }
 
+// TotalGroups reports how many groups a category holds
 func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
 	return tcg.queryTotal(ctx, CatalogGroupsURL, category, nil)
 }
 
+// TotalCategories reports how many categories the platform holds
 func (tcg *Client) TotalCategories(ctx context.Context) (int, error) {
 	return tcg.queryTotal(ctx, CatalogCategoriesURL, 0, nil)
 }
 
-// Retrieve how many items a full call will be
+// queryTotal reports how many items a full listing would return
 func (tcg *Client) queryTotal(ctx context.Context, link string, category int, productTypes []string) (int, error) {
 	u, err := url.Parse(link)
 	if err != nil {
@@ -411,6 +432,7 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 	return response.TotalItems, nil
 }
 
+// Printing is a finish a category's cards are printed in, such as Foil
 type Printing struct {
 	PrintingID   int    `json:"printingId"`
 	Name         string `json:"name"`
@@ -418,6 +440,7 @@ type Printing struct {
 	ModifiedOn   string `json:"modifiedOn"`
 }
 
+// ListCategoryPrintings returns the printings a category's skus reference
 func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", CatalogCategoriesURL, category))
 	if err != nil {
@@ -433,6 +456,7 @@ func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]P
 	return out, nil
 }
 
+// Condition is a grade a category's products are sold in, such as Near Mint
 type Condition struct {
 	ConditionID  int    `json:"conditionId"`
 	Name         string `json:"name"`
@@ -440,6 +464,7 @@ type Condition struct {
 	DisplayOrder int    `json:"displayOrder"`
 }
 
+// ListCategoryConditions returns the conditions a category's skus reference
 func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]Condition, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", CatalogCategoriesURL, category))
 	if err != nil {
@@ -455,12 +480,14 @@ func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]
 	return out, nil
 }
 
+// Language is a language a category's products are printed in
 type Language struct {
 	LanguageID   int    `json:"languageId"`
 	Name         string `json:"name"`
 	Abbreviation string `json:"abbr"`
 }
 
+// ListCategoryLanguages returns the languages a category's skus reference
 func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]Language, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", CatalogCategoriesURL, category))
 	if err != nil {
@@ -476,12 +503,14 @@ func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]L
 	return out, nil
 }
 
+// Rarity is a rarity a category's cards are printed at
 type Rarity struct {
 	RarityID    int    `json:"rarityId"`
 	DisplayText string `json:"displayText"`
 	DBValue     string `json:"dbValue"`
 }
 
+// ListCategoryRarities returns the rarities a category's products carry
 func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", CatalogCategoriesURL, category))
 	if err != nil {
@@ -497,6 +526,7 @@ func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Ra
 	return out, nil
 }
 
+// Product is a single item in the catalog, a card or a sealed product
 type Product struct {
 	ProductID  int    `json:"productId"`
 	Name       string `json:"name"`
@@ -521,6 +551,9 @@ type Product struct {
 	} `json:"extendedData,omitempty"`
 }
 
+// GetProductsDetails returns the details of the given products, at most
+// MaxIDsInRequest of them per call. Pass includeSkus to have each product
+// carry the skus it is sold as.
 func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, includeSkus bool) ([]Product, error) {
 	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
@@ -559,6 +592,9 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, inc
 	return out, nil
 }
 
+// ListAllProducts returns one page of a category's products, starting at
+// offset and holding at most MaxItemsInResponse of them. Pair it with
+// TotalProducts to walk a whole category.
 func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
 	u, err := url.Parse(CatalogProductsURL)
 	if err != nil {
@@ -592,6 +628,8 @@ func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTyp
 	return out, nil
 }
 
+// SKU is a sellable variant of a product: one combination of language,
+// printing and condition
 type SKU struct {
 	SKUID       int `json:"skuId"`
 	ProductID   int `json:"productId"`
@@ -600,6 +638,7 @@ type SKU struct {
 	ConditionID int `json:"conditionId"`
 }
 
+// ListProductSKUs returns the skus a product is sold as
 func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, error) {
 	link := fmt.Sprintf("%s/%d/skus", CatalogProductsURL, productID)
 	resp, err := tcg.Get(ctx, link)
@@ -616,6 +655,8 @@ func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, e
 	return out, nil
 }
 
+// Group is a set, expansion or other collection a category files its
+// products under
 type Group struct {
 	GroupID      int    `json:"groupId"`
 	Name         string `json:"name"`
@@ -626,6 +667,9 @@ type Group struct {
 	CategoryID   int    `json:"categoryId"`
 }
 
+// ListAllCategoryGroups returns one page of a category's groups, starting
+// at offset and holding at most MaxItemsInResponse of them. Pair it with
+// TotalGroups to walk a whole category.
 func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error) {
 	u, err := url.Parse(CatalogGroupsURL)
 	if err != nil {
@@ -651,6 +695,8 @@ func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset i
 	return out, nil
 }
 
+// Category is a game or product line the catalog is split into, such as
+// Magic
 type Category struct {
 	CategoryID        int    `json:"categoryId"`
 	Name              string `json:"name"`
@@ -664,6 +710,8 @@ type Category struct {
 	Popularity        int    `json:"popularity"`
 }
 
+// GetCategoriesDetails returns the details of the given categories, at most
+// MaxIDsInRequest of them per call
 func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []int) ([]Category, error) {
 	if len(categoryIDs) == 0 {
 		return nil, errors.New("no ids in request")
@@ -697,6 +745,7 @@ func ints2strings(ids []int) []string {
 	return out
 }
 
+// ProductPriceSet is the current pricing of one product, for one sub type
 type ProductPriceSet struct {
 	ProductID      int     `json:"productId"`
 	LowPrice       float64 `json:"lowPrice"`
@@ -706,6 +755,8 @@ type ProductPriceSet struct {
 	SubTypeName    string  `json:"subTypeName"`
 }
 
+// GetMarketPricesByProducts returns the current pricing of the given
+// products, at most MaxIDsInRequest of them per call
 func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []int) ([]ProductPriceSet, error) {
 	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
@@ -731,6 +782,7 @@ func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []i
 	return out, nil
 }
 
+// SKUPriceSet is the current pricing of one sku
 type SKUPriceSet struct {
 	SKUID              int     `json:"skuId"`
 	LowPrice           float64 `json:"lowPrice"`
@@ -740,6 +792,8 @@ type SKUPriceSet struct {
 	DirectLowPrice     float64 `json:"directLowPrice"`
 }
 
+// GetMarketPricesBySKUs returns the current pricing of the given skus, at
+// most MaxIDsInRequest of them per call
 func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIDs []int) ([]SKUPriceSet, error) {
 	if len(skuIDs) == 0 {
 		return nil, errors.New("no ids in request")
@@ -791,6 +845,7 @@ func (p Product) Extended(name string) string {
 }
 
 // ReleaseDate is the group's publish date without the time of day.
+// ReleaseDate is the day the group was published, without the time of day
 func (g Group) ReleaseDate() string {
 	return strings.SplitN(g.PublishedOn, "T", 2)[0]
 }
