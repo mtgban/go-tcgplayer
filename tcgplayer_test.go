@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -246,11 +247,12 @@ func TestGetProductsDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(products) != 2 {
-		t.Fatalf("got %d products, want 2", len(products))
+	want := []Product{
+		{ProductID: 12, Name: "Foo"},
+		{ProductID: 34, Name: "Bar"},
 	}
-	if products[0].ProductID != 12 || products[0].Name != "Foo" {
-		t.Errorf("products[0] = %+v", products[0])
+	if !reflect.DeepEqual(products, want) {
+		t.Errorf("GetProductsDetails() = %+v, want %+v", products, want)
 	}
 }
 
@@ -320,25 +322,29 @@ func TestTotalProducts(t *testing.T) {
 }
 
 func TestListCategoryMetadata(t *testing.T) {
+	wantConditions := []Condition{
+		{ConditionID: 1, Name: "Near Mint", Abbreviation: "NM", DisplayOrder: 1},
+		{ConditionID: 2, Name: "Lightly Played", Abbreviation: "LP", DisplayOrder: 2},
+	}
+	wantLanguages := []Language{
+		{LanguageID: 1, Name: "English", Abbreviation: "EN"},
+	}
+	wantRarities := []Rarity{
+		{RarityID: 1, DisplayText: "Mythic", DBValue: "M"},
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		writeToken(w, 86400)
 	})
 	mux.HandleFunc("/catalog/categories/1/conditions", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, 2, []Condition{
-			{ConditionID: 1, Name: "Near Mint", Abbreviation: "NM", DisplayOrder: 1},
-			{ConditionID: 2, Name: "Lightly Played", Abbreviation: "LP", DisplayOrder: 2},
-		})
+		writeEnvelope(w, len(wantConditions), wantConditions)
 	})
 	mux.HandleFunc("/catalog/categories/1/languages", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, 1, []Language{
-			{LanguageID: 1, Name: "English", Abbreviation: "EN"},
-		})
+		writeEnvelope(w, len(wantLanguages), wantLanguages)
 	})
 	mux.HandleFunc("/catalog/categories/1/rarities", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, 1, []Rarity{
-			{RarityID: 1, DisplayText: "Mythic", DBValue: "M"},
-		})
+		writeEnvelope(w, len(wantRarities), wantRarities)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -347,24 +353,24 @@ func TestListCategoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(conditions) != 2 || conditions[0].Abbreviation != "NM" {
-		t.Errorf("conditions = %+v", conditions)
+	if !reflect.DeepEqual(conditions, wantConditions) {
+		t.Errorf("ListCategoryConditions() = %+v, want %+v", conditions, wantConditions)
 	}
 
 	languages, err := tcg.ListCategoryLanguages(context.Background(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(languages) != 1 || languages[0].Abbreviation != "EN" {
-		t.Errorf("languages = %+v", languages)
+	if !reflect.DeepEqual(languages, wantLanguages) {
+		t.Errorf("ListCategoryLanguages() = %+v, want %+v", languages, wantLanguages)
 	}
 
 	rarities, err := tcg.ListCategoryRarities(context.Background(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rarities) != 1 || rarities[0].DBValue != "M" {
-		t.Errorf("rarities = %+v", rarities)
+	if !reflect.DeepEqual(rarities, wantRarities) {
+		t.Errorf("ListCategoryRarities() = %+v, want %+v", rarities, wantRarities)
 	}
 }
 
