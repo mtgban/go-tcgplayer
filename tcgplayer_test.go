@@ -2,7 +2,6 @@ package tcgplayer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -56,20 +55,18 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 	return tcg
 }
 
+// Fixtures are written as the json the API sends, rather than encoded from
+// the types under test. Encoding our own types would round trip through the
+// same struct tags being tested, so a wrong tag would still decode back to
+// the value it was written from and the test would pass.
+
 func writeToken(w http.ResponseWriter, expiresIn int64) {
-	json.NewEncoder(w).Encode(map[string]any{
-		"access_token": "test-token",
-		"expires_in":   expiresIn,
-	})
+	fmt.Fprintf(w, `{"access_token": "test-token", "token_type": "bearer", "expires_in": %d}`, expiresIn)
 }
 
-func writeEnvelope(w http.ResponseWriter, totalItems int, results any) {
-	data, _ := json.Marshal(results)
-	json.NewEncoder(w).Encode(BaseResponse{
-		TotalItems: totalItems,
-		Success:    true,
-		Results:    data,
-	})
+// writeEnvelope wraps results, itself raw json, in the response envelope.
+func writeEnvelope(w http.ResponseWriter, totalItems int, results string) {
+	fmt.Fprintf(w, `{"totalItems": %d, "success": true, "errors": [], "results": %s}`, totalItems, results)
 }
 
 func TestNewClientMissingKeys(t *testing.T) {
@@ -102,7 +99,7 @@ func TestTokenFetchedOnceForConcurrentRequests(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
 			t.Errorf("Authorization = %q, want %q", got, "Bearer test-token")
 		}
-		writeEnvelope(w, 0, []Product{})
+		writeEnvelope(w, 0, `[]`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -134,7 +131,7 @@ func TestTokenRefreshedNearExpiry(t *testing.T) {
 		writeToken(w, 0)
 	})
 	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, 0, []Product{})
+		writeEnvelope(w, 0, `[]`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -185,9 +182,7 @@ func TestGetErrorFromEnvelope(t *testing.T) {
 	})
 	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(BaseResponse{
-			Errors: []string{"No products were found.", "100% failure"},
-		})
+		fmt.Fprint(w, `{"success": false, "errors": ["No products were found.", "100% failure"]}`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -209,7 +204,7 @@ func TestGetErrorWithEmptyEnvelope(t *testing.T) {
 	})
 	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(BaseResponse{})
+		fmt.Fprint(w, `{}`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -235,10 +230,10 @@ func TestGetProductsDetails(t *testing.T) {
 		if got := r.URL.Query().Get("includeSkus"); got != "true" {
 			t.Errorf("includeSkus = %q, want %q", got, "true")
 		}
-		writeEnvelope(w, 2, []Product{
-			{ProductID: 12, Name: "Foo"},
-			{ProductID: 34, Name: "Bar"},
-		})
+		writeEnvelope(w, 2, `[
+			{"productId": 12, "name": "Foo"},
+			{"productId": 34, "name": "Bar"}
+		]`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -307,7 +302,7 @@ func TestTotalProducts(t *testing.T) {
 		if got := r.URL.Query().Get("limit"); got != "1" {
 			t.Errorf("limit = %q, want %q", got, "1")
 		}
-		writeEnvelope(w, 4321, []Product{{ProductID: 1}})
+		writeEnvelope(w, 4321, `[{"productId": 1}]`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -338,13 +333,20 @@ func TestListCategoryMetadata(t *testing.T) {
 		writeToken(w, 86400)
 	})
 	mux.HandleFunc("/catalog/categories/1/conditions", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, len(wantConditions), wantConditions)
+		writeEnvelope(w, len(wantConditions), `[
+			{"conditionId": 1, "name": "Near Mint", "abbreviation": "NM", "displayOrder": 1},
+			{"conditionId": 2, "name": "Lightly Played", "abbreviation": "LP", "displayOrder": 2}
+		]`)
 	})
 	mux.HandleFunc("/catalog/categories/1/languages", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, len(wantLanguages), wantLanguages)
+		writeEnvelope(w, len(wantLanguages), `[
+			{"languageId": 1, "name": "English", "abbr": "EN"}
+		]`)
 	})
 	mux.HandleFunc("/catalog/categories/1/rarities", func(w http.ResponseWriter, r *http.Request) {
-		writeEnvelope(w, len(wantRarities), wantRarities)
+		writeEnvelope(w, len(wantRarities), `[
+			{"rarityId": 1, "displayText": "Mythic", "dbValue": "M"}
+		]`)
 	})
 
 	tcg := newTestClient(t, mux)
@@ -383,7 +385,7 @@ func TestTotalCategoriesHasNoCategoryFilter(t *testing.T) {
 		if r.URL.Query().Has("categoryId") {
 			t.Error("unexpected categoryId filter on categories endpoint")
 		}
-		writeEnvelope(w, 88, []Category{{CategoryID: 1}})
+		writeEnvelope(w, 88, `[{"categoryId": 1}]`)
 	})
 
 	tcg := newTestClient(t, mux)
