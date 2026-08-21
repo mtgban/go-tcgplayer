@@ -24,18 +24,18 @@ const (
 	MaxIDsInRequest    = 250
 )
 
-const tcgApiVersion = "v1.39.0"
+const tcgAPIVersion = "v1.39.0"
 
 // Endpoint URLs, overridable for testing
 var (
 	TCGAPITokenURL = "https://api.tcgplayer.com/token"
 
-	TCGAPICatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/categories"
-	TCGAPICatalogProductsURL   = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/products"
-	TCGAPICatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/catalog/groups"
+	TCGAPICatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/categories"
+	TCGAPICatalogProductsURL   = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/products"
+	TCGAPICatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/groups"
 
-	TCGAPIPricingProductURL = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/product"
-	TCGAPIPricingSkuURL     = "https://api.tcgplayer.com/" + tcgApiVersion + "/pricing/sku"
+	TCGAPIPricingProductURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/product"
+	TCGAPIPricingSkuURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/sku"
 )
 
 // All active categories on the platform
@@ -479,7 +479,7 @@ func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]L
 type Rarity struct {
 	RarityID    int    `json:"rarityId"`
 	DisplayText string `json:"displayText"`
-	DbValue     string `json:"dbValue"`
+	DBValue     string `json:"dbValue"`
 }
 
 func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
@@ -600,8 +600,8 @@ type SKU struct {
 	ConditionID int `json:"conditionId"`
 }
 
-func (tcg *Client) ListProductSKUs(ctx context.Context, productId int) ([]SKU, error) {
-	link := fmt.Sprintf("%s/%d/skus", TCGAPICatalogProductsURL, productId)
+func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, error) {
+	link := fmt.Sprintf("%s/%d/skus", TCGAPICatalogProductsURL, productID)
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err

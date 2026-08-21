@@ -337,7 +337,7 @@ func TestListCategoryMetadata(t *testing.T) {
 	})
 	mux.HandleFunc("/catalog/categories/1/rarities", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 1, []Rarity{
-			{RarityID: 1, DisplayText: "Mythic", DbValue: "M"},
+			{RarityID: 1, DisplayText: "Mythic", DBValue: "M"},
 		})
 	})
 
@@ -363,7 +363,7 @@ func TestListCategoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rarities) != 1 || rarities[0].DbValue != "M" {
+	if len(rarities) != 1 || rarities[0].DBValue != "M" {
 		t.Errorf("rarities = %+v", rarities)
 	}
 }
