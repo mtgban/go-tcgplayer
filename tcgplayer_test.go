@@ -26,24 +26,24 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 		v    *string
 		orig string
 	}{
-		{&TCGAPITokenURL, TCGAPITokenURL},
-		{&TCGAPICatalogCategoriesURL, TCGAPICatalogCategoriesURL},
-		{&TCGAPICatalogProductsURL, TCGAPICatalogProductsURL},
-		{&TCGAPICatalogGroupsURL, TCGAPICatalogGroupsURL},
-		{&TCGAPIPricingProductURL, TCGAPIPricingProductURL},
-		{&TCGAPIPricingSkuURL, TCGAPIPricingSkuURL},
+		{&TokenURL, TokenURL},
+		{&CatalogCategoriesURL, CatalogCategoriesURL},
+		{&CatalogProductsURL, CatalogProductsURL},
+		{&CatalogGroupsURL, CatalogGroupsURL},
+		{&PricingProductURL, PricingProductURL},
+		{&PricingSKUURL, PricingSKUURL},
 	}
 	t.Cleanup(func() {
 		for _, s := range saved {
 			*s.v = s.orig
 		}
 	})
-	TCGAPITokenURL = srv.URL + "/token"
-	TCGAPICatalogCategoriesURL = srv.URL + "/catalog/categories"
-	TCGAPICatalogProductsURL = srv.URL + "/catalog/products"
-	TCGAPICatalogGroupsURL = srv.URL + "/catalog/groups"
-	TCGAPIPricingProductURL = srv.URL + "/pricing/product"
-	TCGAPIPricingSkuURL = srv.URL + "/pricing/sku"
+	TokenURL = srv.URL + "/token"
+	CatalogCategoriesURL = srv.URL + "/catalog/categories"
+	CatalogProductsURL = srv.URL + "/catalog/products"
+	CatalogGroupsURL = srv.URL + "/catalog/groups"
+	PricingProductURL = srv.URL + "/pricing/product"
+	PricingSKUURL = srv.URL + "/pricing/sku"
 
 	tcg, err := NewClient("test-public", "test-private")
 	if err != nil {
@@ -111,7 +111,7 @@ func TestTokenFetchedOnceForConcurrentRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL); err != nil {
+			if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -139,7 +139,7 @@ func TestTokenRefreshedNearExpiry(t *testing.T) {
 	tcg := newTestClient(t, mux)
 
 	for i := 0; i < 2; i++ {
-		if _, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL); err != nil {
+		if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -165,7 +165,7 @@ func TestBadCredentialsAreNotRetried(t *testing.T) {
 	tcg.client.RetryWaitMin = time.Millisecond
 	tcg.client.RetryWaitMax = time.Millisecond
 
-	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
+	_, err := tcg.Get(context.Background(), CatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error with bad credentials")
 	}
@@ -191,7 +191,7 @@ func TestGetErrorFromEnvelope(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
+	_, err := tcg.Get(context.Background(), CatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error on non-2xx response")
 	}
@@ -213,7 +213,7 @@ func TestGetErrorWithEmptyEnvelope(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	_, err := tcg.Get(context.Background(), TCGAPICatalogProductsURL)
+	_, err := tcg.Get(context.Background(), CatalogProductsURL)
 	if err == nil {
 		t.Fatal("expected error on non-2xx response with empty errors")
 	}

@@ -28,14 +28,14 @@ const tcgAPIVersion = "v1.39.0"
 
 // Endpoint URLs, overridable for testing
 var (
-	TCGAPITokenURL = "https://api.tcgplayer.com/token"
+	TokenURL = "https://api.tcgplayer.com/token"
 
-	TCGAPICatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/categories"
-	TCGAPICatalogProductsURL   = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/products"
-	TCGAPICatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/groups"
+	CatalogCategoriesURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/categories"
+	CatalogProductsURL   = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/products"
+	CatalogGroupsURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/catalog/groups"
 
-	TCGAPIPricingProductURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/product"
-	TCGAPIPricingSkuURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/sku"
+	PricingProductURL = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/product"
+	PricingSKUURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/sku"
 )
 
 // All active categories on the platform
@@ -225,7 +225,7 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	params.Set("client_secret", t.privateKey)
 	payload := strings.NewReader(params.Encode())
 
-	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, TCGAPITokenURL, payload)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, TokenURL, payload)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -371,15 +371,15 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 }
 
 func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
-	return tcg.queryTotal(ctx, TCGAPICatalogProductsURL, category, productTypes)
+	return tcg.queryTotal(ctx, CatalogProductsURL, category, productTypes)
 }
 
 func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
-	return tcg.queryTotal(ctx, TCGAPICatalogGroupsURL, category, nil)
+	return tcg.queryTotal(ctx, CatalogGroupsURL, category, nil)
 }
 
 func (tcg *Client) TotalCategories(ctx context.Context) (int, error) {
-	return tcg.queryTotal(ctx, TCGAPICatalogCategoriesURL, 0, nil)
+	return tcg.queryTotal(ctx, CatalogCategoriesURL, 0, nil)
 }
 
 // Retrieve how many items a full call will be
@@ -419,7 +419,7 @@ type Printing struct {
 }
 
 func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", TCGAPICatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +441,7 @@ type Condition struct {
 }
 
 func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]Condition, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", TCGAPICatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +462,7 @@ type Language struct {
 }
 
 func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]Language, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", TCGAPICatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +483,7 @@ type Rarity struct {
 }
 
 func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
-	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", TCGAPICatalogCategoriesURL, category))
+	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
 	}
@@ -530,7 +530,7 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, inc
 	}
 
 	ids := ints2strings(productIDs)
-	link := TCGAPICatalogProductsURL + "/" + strings.Join(ids, ",")
+	link := CatalogProductsURL + "/" + strings.Join(ids, ",")
 
 	u, err := url.Parse(link)
 	if err != nil {
@@ -560,7 +560,7 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, inc
 }
 
 func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
-	u, err := url.Parse(TCGAPICatalogProductsURL)
+	u, err := url.Parse(CatalogProductsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +601,7 @@ type SKU struct {
 }
 
 func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, error) {
-	link := fmt.Sprintf("%s/%d/skus", TCGAPICatalogProductsURL, productID)
+	link := fmt.Sprintf("%s/%d/skus", CatalogProductsURL, productID)
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
 		return nil, err
@@ -627,7 +627,7 @@ type Group struct {
 }
 
 func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error) {
-	u, err := url.Parse(TCGAPICatalogGroupsURL)
+	u, err := url.Parse(CatalogGroupsURL)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +673,7 @@ func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []int) 
 	}
 
 	ids := ints2strings(categoryIDs)
-	link := TCGAPICatalogCategoriesURL + "/" + strings.Join(ids, ",")
+	link := CatalogCategoriesURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -715,7 +715,7 @@ func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []i
 	}
 
 	ids := ints2strings(productIDs)
-	link := TCGAPIPricingProductURL + "/" + strings.Join(ids, ",")
+	link := PricingProductURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -749,7 +749,7 @@ func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIDs []int) ([]S
 	}
 
 	ids := ints2strings(skuIDs)
-	link := TCGAPIPricingSkuURL + "/" + strings.Join(ids, ",")
+	link := PricingSKUURL + "/" + strings.Join(ids, ",")
 
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
