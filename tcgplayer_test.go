@@ -147,6 +147,33 @@ func TestTokenRefreshedNearExpiry(t *testing.T) {
 	}
 }
 
+func TestTokenReusedUntilExpiry(t *testing.T) {
+	var tokenRequests atomic.Int64
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		tokenRequests.Add(1)
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	// Sequential, so the singleflight cannot be what collapses these into
+	// one fetch: a token good for a day has to be reused on its own.
+	for i := 0; i < 3; i++ {
+		if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got := tokenRequests.Load(); got != 1 {
+		t.Errorf("token requested %d times, want 1", got)
+	}
+}
+
 func TestBadCredentialsAreNotRetried(t *testing.T) {
 	var tokenRequests atomic.Int64
 
