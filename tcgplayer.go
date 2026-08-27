@@ -138,9 +138,57 @@ const (
 	CategoryCyberpunk
 )
 
-// AllProductTypes lists every product type the catalog files products under
+// AllProductTypes lists every product type name the platform uses. No
+// category files products under all of them; ProductTypes reports the ones
+// a given category actually uses.
 var AllProductTypes = []string{
+	"3D Tokens",
+	"3x Magic Booster Packs",
+	"All 5 Intro Packs",
+	"BakuCores",
+	"Booster Battle Pack",
+	"Booster Box",
+	"Booster Pack",
+	"Box Sets",
+	"Bulk Lot",
 	"Cards",
+	"D & D Miniatures",
+	"Dragoborne Sealed Products",
+	"Dragon Ball Super Sealed Products",
+	"Dragon Ball Super Singles",
+	"Fat Pack",
+	"Final Fantasy Sealed Products",
+	"Final Fantasy Singles",
+	"Funko Products",
+	"Gift Card",
+	"Heroclix",
+	"Intro Pack",
+	"Intro Pack Display",
+	"Magic Booster Box Case",
+	"Magic Deck Pack",
+	"Osprey Publishing",
+	"Precon/Event Decks",
+	"Sealed Product",
+	"Sealed Products",
+	"Star Wars: Destiny Sealed Products",
+	"Star Wars: Destiny Singles",
+	"Supplies",
+	"Tin",
+	"Tokens",
+	"UFS Sealed Products",
+	"UFS Singles",
+	"YGO Start Decks",
+}
+
+// ProductTypesSingles lists the product type holding single cards for the
+// categories that name it the common way. Prefer SinglesProductTypes, which
+// answers for the categories naming it after themselves too.
+var ProductTypesSingles = []string{"Cards"}
+
+// ProductTypesSealed lists the sealed product types Magic files products
+// under. Prefer SealedProductTypes: a category files its own set, and one
+// missing from this list is one whose products go unseen.
+var ProductTypesSealed = []string{
 	"Booster Box",
 	"Booster Pack",
 	"Sealed Products",
@@ -156,11 +204,127 @@ var AllProductTypes = []string{
 	"Booster Battle Pack",
 }
 
-// ProductTypesSingles lists the product types holding single cards
-var ProductTypesSingles = []string{AllProductTypes[0]}
+// ProductTypesByCategory holds the product types each category files its
+// products under. Asking for only these keeps a dump from paging types the
+// category never uses, and keeps it from missing the ones it does: the
+// entries below were read off the platform and each accounts for its
+// category's whole product count. Categories absent from the map are ones
+// whose vocabulary is not known; ProductTypes falls back to every name for
+// them, which a caller counting its results will find comes up short.
+var ProductTypesByCategory = map[int][]string{
+	CategoryMagic:                         {"3x Magic Booster Packs", "All 5 Intro Packs", "Booster Battle Pack", "Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Intro Pack Display", "Magic Booster Box Case", "Magic Deck Pack", "Precon/Event Decks", "Sealed Products"},
+	CategoryYuGiOh:                        {"Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Magic Booster Box Case", "Sealed Products", "Tin", "YGO Start Decks"},
+	CategoryPokemon:                       {"Cards", "Sealed Products"},
+	CategoryDDMiniatures:                  {"D & D Miniatures"},
+	CategoryEpic:                          {"Cards"},
+	CategoryHeroclix:                      {"Heroclix", "Sealed Products"},
+	CategoryWoW:                           {"Booster Box", "Booster Pack", "Cards", "Sealed Products"},
+	CategoryCardfightVanguard:             {"Cards", "Intro Pack", "Sealed Products"},
+	CategoryForceOfWill:                   {"Cards", "Sealed Products"},
+	CategoryDiceMasters:                   {"Cards", "Sealed Products"},
+	CategoryFutureCardBuddyFight:          {"Cards", "Sealed Products"},
+	CategoryWeissSchwarz:                  {"Cards", "Sealed Products"},
+	CategoryTCGplayer:                     {"Gift Card"},
+	CategoryDragonBallZ:                   {"Cards", "Sealed Products"},
+	CategoryFinalFantasy:                  {"Final Fantasy Sealed Products", "Final Fantasy Singles"},
+	CategoryUniVersus:                     {"UFS Sealed Products", "UFS Singles"},
+	CategoryStarWarsDestiny:               {"Star Wars: Destiny Sealed Products", "Star Wars: Destiny Singles"},
+	CategoryDragonBallSuper:               {"Dragon Ball Super Sealed Products", "Dragon Ball Super Singles"},
+	CategoryDragoborne:                    {"Cards", "Dragoborne Sealed Products"},
+	CategoryFunko:                         {"Funko Products"},
+	CategoryMetaX:                         {"Cards", "Sealed Products"},
+	CategoryCardSleeves:                   {"Supplies"},
+	CategoryDeckBoxes:                     {"Supplies"},
+	CategoryCardStorageTins:               {"Supplies"},
+	CategoryLifeCounters:                  {"3D Tokens", "Sealed Products", "Supplies", "Tokens"},
+	CategoryPlaymats:                      {"Supplies"},
+	CategoryZombieWorldOrder:              {"Cards", "Sealed Products"},
+	CategoryTheCasterChronicles:           {"Cards", "Sealed Products"},
+	CategoryMyLittlePony:                  {"Sealed Products"},
+	CategoryBooks:                         {"Osprey Publishing"},
+	CategoryExodus:                        {"Cards", "Sealed Products"},
+	CategoryLightseekers:                  {"Cards", "Sealed Products"},
+	CategoryProtectivePages:               {"Supplies"},
+	CategoryStorageAlbums:                 {"Supplies"},
+	CategoryCollectibleStorage:            {"Supplies"},
+	CategorySupplyBundles:                 {"Supplies"},
+	CategoryMunchkin:                      {"Cards", "Sealed Products"},
+	CategoryWarhammerAgeOfSigmarChampions: {"Cards", "Sealed Products"},
+	CategoryBulkLots:                      {"Bulk Lot"},
+	CategoryTransformers:                  {"Cards", "Sealed Products"},
+	CategoryBakugan:                       {"BakuCores", "Cards", "Sealed Products"},
+	CategoryKeyForge:                      {"Sealed Products"},
+	CategoryChronoClashSystem:             {"Cards", "Sealed Products"},
+	CategoryArgentSaga:                    {"Cards", "Sealed Products"},
+	CategoryFleshAndBlood:                 {"Cards", "Sealed Products"},
+	CategoryDigimon:                       {"Cards", "Sealed Products"},
+	CategoryAlternateSouls:                {"Sealed Products"},
+	CategoryGateRuler:                     {"Cards", "Sealed Products"},
+	CategoryMetaZoo:                       {"Cards", "Sealed Products"},
+	CategoryWIXOSS:                        {"Cards", "Sealed Products"},
+	CategoryOnePiece:                      {"Cards", "Sealed Products"},
+	CategoryLorcana:                       {"Cards", "Sealed Products"},
+	CategoryBattleSpiritsSaga:             {"Cards", "Sealed Product"},
+	CategoryShadowverseEvolve:             {"Cards", "Sealed Product"},
+	CategoryGrandArchive:                  {"Cards", "Sealed Product"},
+	CategoryAkora:                         {"Cards", "Sealed Product"},
+	CategoryKryptik:                       {"Cards", "Sealed Product"},
+	CategorySorceryContestedRealm:         {"Cards", "Sealed Products"},
+	CategoryAlphaClash:                    {"Cards", "Sealed Products"},
+	CategoryStarWarsUnlimited:             {"Cards", "Sealed Products"},
+	CategoryDragonBallSuperFusionWorld:    {"Cards", "Sealed Products"},
+	CategoryUnionArena:                    {"Cards", "Sealed Products"},
+	CategoryTCGplayerSupplies:             {"Sealed Products"},
+	CategoryElestrals:                     {"Cards", "Sealed Products"},
+	CategoryPokemonJapan:                  {"Cards", "Sealed Products"},
+	CategoryGundam:                        {"Cards", "Sealed Products"},
+	CategoryHololive:                      {"Cards", "Sealed Products"},
+	CategoryGodzilla:                      {"Cards", "Sealed Products"},
+	CategoryRiftbound:                     {"Cards", "Sealed Products"},
+	CategoryCookieRunBraverse:             {"Cards", "Sealed Products"},
+}
 
-// ProductTypesSealed lists the product types holding sealed products
-var ProductTypesSealed = AllProductTypes[1:]
+// ProductTypes returns the product types the given category files its
+// products under, or every known type when the category is not listed.
+func ProductTypes(category int) []string {
+	if types, found := ProductTypesByCategory[category]; found {
+		return types
+	}
+	return AllProductTypes
+}
+
+// isSinglesType reports whether a product type holds single cards. Most
+// categories call it Cards; the ones that name it after themselves suffix
+// the game with Singles, as Dragon Ball Super Singles does. No category
+// uses more than one of them.
+func isSinglesType(productType string) bool {
+	return productType == "Cards" || strings.HasSuffix(productType, " Singles")
+}
+
+// SinglesProductTypes returns the product types the given category files
+// single cards under. It is empty for the categories that sell none, such
+// as supplies and storage.
+func SinglesProductTypes(category int) []string {
+	var out []string
+	for _, productType := range ProductTypes(category) {
+		if isSinglesType(productType) {
+			out = append(out, productType)
+		}
+	}
+	return out
+}
+
+// SealedProductTypes returns the product types the given category files
+// everything other than single cards under, sealed products above all.
+func SealedProductTypes(category int) []string {
+	var out []string
+	for _, productType := range ProductTypes(category) {
+		if !isSinglesType(productType) {
+			out = append(out, productType)
+		}
+	}
+	return out
+}
 
 // Client talks to the TCGplayer API, holding the credentials every call
 // needs. It acquires and refreshes bearer tokens on demand, holds requests

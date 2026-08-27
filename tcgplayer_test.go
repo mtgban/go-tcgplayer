@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -67,6 +68,37 @@ func writeToken(w http.ResponseWriter, expiresIn int64) {
 // writeEnvelope wraps results, itself raw json, in the response envelope.
 func writeEnvelope(w http.ResponseWriter, totalItems int, results string) {
 	fmt.Fprintf(w, `{"totalItems": %d, "success": true, "errors": [], "results": %s}`, totalItems, results)
+}
+
+func TestProductTypesPerCategory(t *testing.T) {
+	// A category naming its types for itself, where asking for "Cards"
+	// would match nothing at all
+	if got := SinglesProductTypes(CategoryDragonBallSuper); !reflect.DeepEqual(got, []string{"Dragon Ball Super Singles"}) {
+		t.Errorf("SinglesProductTypes(dragon ball super) = %q, want [Dragon Ball Super Singles]", got)
+	}
+	// The types Magic's list does not name, and used to lose
+	sealed := SealedProductTypes(CategoryYuGiOh)
+	for _, want := range []string{"Tin", "YGO Start Decks"} {
+		if !slices.Contains(sealed, want) {
+			t.Errorf("SealedProductTypes(yugioh) = %q, want it to hold %q", sealed, want)
+		}
+	}
+	if slices.Contains(sealed, "Cards") {
+		t.Errorf("SealedProductTypes(yugioh) = %q, want no singles type in it", sealed)
+	}
+	// Singles and sealed have to partition the category's types
+	for _, category := range []int{CategoryMagic, CategoryYuGiOh, CategoryLorcana, CategoryDragonBallSuper} {
+		got := len(SinglesProductTypes(category)) + len(SealedProductTypes(category))
+		if want := len(ProductTypes(category)); got != want {
+			t.Errorf("category %d: singles+sealed = %d types, want %d", category, got, want)
+		}
+	}
+	// An unlisted category falls back to every known name, which a caller
+	// counting its results will find comes up short rather than silently
+	// dumping nothing
+	if got := ProductTypes(-1); !reflect.DeepEqual(got, AllProductTypes) {
+		t.Errorf("ProductTypes(unlisted) = %q, want every known type", got)
+	}
 }
 
 func TestNewClientMissingKeys(t *testing.T) {
