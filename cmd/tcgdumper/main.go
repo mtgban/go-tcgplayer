@@ -117,15 +117,25 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
 
-	// The per-type totals should partition the union; a drift means a
-	// product carries several types (duplicated below) or none (missed)
-	unionTotal, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, tcgplayer.AllProductTypes)
+	// The per-type totals have to account for the whole category. Counting
+	// with no filter at all is the only way to see a product whose type is
+	// missing from AllProductTypes: counting the union of that same list
+	// cannot report what the list does not name.
+	categoryTotal, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if unionTotal != totalProducts {
-		fmt.Fprintln(os.Stderr, "per-type totals sum to", totalProducts, "but the union counts", unionTotal)
+	if categoryTotal > totalProducts {
+		fmt.Fprintf(os.Stderr, "the category holds %d products but the known types account for only %d, "+
+			"so some product type is missing from AllProductTypes and its products would go undumped\n",
+			categoryTotal, totalProducts)
+		return 1
+	}
+	if categoryTotal < totalProducts {
+		fmt.Fprintf(os.Stderr, "warning: per-type totals sum to %d but the category holds %d, "+
+			"so some products carry more than one type and appear once per type\n",
+			totalProducts, categoryTotal)
 	}
 
 	totalPages := len(jobs)
@@ -195,8 +205,23 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Dumped", len(products), "products and", len(groups), "groups")
 
+	// Everything counted up front has to come back, whether or not a page
+	// reported an error: a page that simply answered short is a silent loss
+	incomplete := false
 	if failed := failedPages.Load(); failed > 0 {
-		fmt.Fprintln(os.Stderr, failed, "pages failed to download, output is incomplete")
+		fmt.Fprintln(os.Stderr, failed, "pages failed to download")
+		incomplete = true
+	}
+	if len(groups) != totalgroups {
+		fmt.Fprintln(os.Stderr, "expected", totalgroups, "groups but collected", len(groups))
+		incomplete = true
+	}
+	if len(products) != totalProducts {
+		fmt.Fprintln(os.Stderr, "expected", totalProducts, "products but collected", len(products))
+		incomplete = true
+	}
+	if incomplete {
+		fmt.Fprintln(os.Stderr, "output is incomplete")
 		return 1
 	}
 
