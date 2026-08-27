@@ -94,13 +94,14 @@ func run() int {
 	// The API never reports which product type a product is filed under,
 	// so the type must be established at fetch time: page each type
 	// separately and stamp the products with the type they answered to.
+	// Each category names its own types, so ask for that category's.
 	type page struct {
 		productType string
 		offset      int
 	}
 	var jobs []page
 	totalProducts := 0
-	for _, productType := range tcgplayer.AllProductTypes {
+	for _, productType := range tcgplayer.ProductTypes(*categoryOpt) {
 		total, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, []string{productType})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -127,8 +128,8 @@ func run() int {
 		return 1
 	}
 	if categoryTotal > totalProducts {
-		fmt.Fprintf(os.Stderr, "the category holds %d products but the known types account for only %d, "+
-			"so some product type is missing from AllProductTypes and its products would go undumped\n",
+		fmt.Fprintf(os.Stderr, "the category holds %d products but its known types account for only %d, "+
+			"so some product type is missing from ProductTypesByCategory and its products would go undumped\n",
 			categoryTotal, totalProducts)
 		return 1
 	}

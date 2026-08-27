@@ -138,9 +138,9 @@ func TestDumpsEveryProduct(t *testing.T) {
 	}
 }
 
-// A product type the catalog uses but AllProductTypes does not name is never
-// queried, so its products are missing from the dump with nothing in the
-// output to show for it. Only the unfiltered count can see them.
+// A product type the catalog uses but the category's list does not name is
+// never queried, so its products are missing from the dump with nothing in
+// the output to show for it. Only the unfiltered count can see them.
 func TestProductTypeOutsideTheKnownListFailsTheDump(t *testing.T) {
 	serveCatalog(t, map[string][]int{"Cards": {1, 2, 3}}, 5, 0)
 
@@ -148,7 +148,7 @@ func TestProductTypeOutsideTheKnownListFailsTheDump(t *testing.T) {
 	if code == 0 {
 		t.Errorf("exit = 0, want non-zero: two products were never fetched\n%s", logged)
 	}
-	if !strings.Contains(logged, "missing from AllProductTypes") {
+	if !strings.Contains(logged, "missing from ProductTypesByCategory") {
 		t.Errorf("stderr does not name the cause:\n%s", logged)
 	}
 }
