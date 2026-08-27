@@ -403,6 +403,31 @@ func TestListCategoryMetadata(t *testing.T) {
 	}
 }
 
+func TestListingTruncationIsAnError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	// The endpoint counts twelve languages but answers with two, and
+	// offers no way to page for the rest
+	mux.HandleFunc("/catalog/categories/1/languages", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 12, `[
+			{"languageId": 1, "name": "English", "abbr": "EN"},
+			{"languageId": 2, "name": "Japanese", "abbr": "JP"}
+		]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	_, err := tcg.ListCategoryLanguages(context.Background(), 1)
+	if err == nil {
+		t.Fatal("expected an error when the listing is short of its own count")
+	}
+	if !strings.Contains(err.Error(), "2 of 12") {
+		t.Errorf("error = %q, want it to report 2 of 12", err.Error())
+	}
+}
+
 func TestTotalCategoriesHasNoCategoryFilter(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
