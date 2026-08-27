@@ -48,7 +48,7 @@ const (
 	CategoryYuGiOh
 	CategoryPokemon
 	CategoryAxisAllies
-	_
+	CategoryBoardgames
 	CategoryDDMiniatures
 	CategoryEpic
 	CategoryHeroclix
@@ -59,12 +59,12 @@ const (
 	CategoryWoW
 	CategorySupplies
 	CategoryOrganizersStores
-	CategoryChronoClashSystem
+	CategoryCardfightVanguard
 	CategoryForceOfWill
 	CategoryDiceMasters
 	CategoryFutureCardBuddyFight
 	CategoryWeissSchwarz
-	_
+	_ // 21, My Little Pony: listed by the platform, serves no groups
 	CategoryTCGplayer
 	CategoryDragonBallZ
 	CategoryFinalFantasy
@@ -103,7 +103,7 @@ const (
 	CategoryTransformers
 	CategoryBakugan
 	CategoryKeyForge
-	CategoryCardfightVanguard
+	CategoryChronoClashSystem
 	CategoryArgentSaga
 	CategoryFleshAndBlood
 	CategoryDigimon
@@ -134,6 +134,8 @@ const (
 	CategoryGodzilla
 	CategoryRiftbound
 	CategoryCookieRunBraverse
+	CategoryPalworld
+	CategoryCyberpunk
 )
 
 // AllProductTypes lists every product type the catalog files products under
