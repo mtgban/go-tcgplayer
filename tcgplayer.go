@@ -282,6 +282,8 @@ var ProductTypesByCategory = map[int][]string{
 	CategoryGodzilla:                      {"Cards", "Sealed Products"},
 	CategoryRiftbound:                     {"Cards", "Sealed Products"},
 	CategoryCookieRunBraverse:             {"Cards", "Sealed Products"},
+	CategoryPalworld:                      {"Cards", "Sealed Products"},
+	CategoryCyberpunk:                     {"Cards", "Sealed Products"},
 }
 
 // ProductTypes returns the product types the given category files its
