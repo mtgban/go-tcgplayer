@@ -136,6 +136,11 @@ const (
 	CategoryCookieRunBraverse
 	CategoryPalworld
 	CategoryCyberpunk
+
+	// categoryCount is one past the last category, so a test can walk
+	// every one of them and notice a category added without the product
+	// types it files under.
+	categoryCount
 )
 
 // AllProductTypes lists every product type name the platform uses. No

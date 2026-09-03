@@ -493,3 +493,85 @@ func TestInts2Strings(t *testing.T) {
 		t.Errorf("ints2strings(nil) = %v, want empty", out)
 	}
 }
+
+// categoriesWithoutProductTypes are the categories ProductTypesByCategory
+// leaves out, and why. A category in neither this nor the map is one nobody
+// decided about, which is how Palworld and Cyberpunk came to be dumped
+// against every product type name the platform has rather than their own two.
+var categoriesWithoutProductTypes = map[int]string{
+	// The platform serves products for these, filed under type names it
+	// does not report through the catalog or the search facets. Dumping one
+	// would come up short, and the count check would say so.
+	CategoryAxisAllies:               "product type names unknown",
+	CategoryBoardgames:               "product type names unknown",
+	CategoryStarWarsMiniatures:       "product type names unknown",
+	CategoryOrganizersStores:         "product type names unknown",
+	CategoryWarhammerBooks:           "product type names unknown",
+	CategoryWarhammerBigBoxGames:     "product type names unknown",
+	CategoryWarhammerBoxSets:         "product type names unknown",
+	CategoryWarhammerClampacks:       "product type names unknown",
+	CategoryCitadelPaints:            "product type names unknown",
+	CategoryCitadelTools:             "product type names unknown",
+	CategoryWarhammerGameAccessories: "product type names unknown",
+
+	// The platform lists these but serves no product under them, so there
+	// is no vocabulary to record.
+	CategoryMonsterpocalypse:          "serves no products",
+	CategoryRedakai:                   "serves no products",
+	CategoryWorldOfWarcraftMiniatures: "serves no products",
+	CategorySupplies:                  "serves no products",
+	21:                                "My Little Pony, serves no products",
+	CategoryArchitect:                 "serves no products",
+	CategoryMarvelComics:              "serves no products",
+	CategoryDCComics:                  "serves no products",
+	CategoryNeopetsBattledome:         "serves no products",
+}
+
+// TestEveryCategoryIsAccountedFor is the guard on adding a category: name one
+// without saying what it files products under, here or in the map, and this
+// fails rather than leaving ProductTypes to fall back silently.
+func TestEveryCategoryIsAccountedFor(t *testing.T) {
+	for id := 1; id < categoryCount; id++ {
+		_, mapped := ProductTypesByCategory[id]
+		reason, excused := categoriesWithoutProductTypes[id]
+		switch {
+		case mapped && excused:
+			t.Errorf("category %d is in ProductTypesByCategory and also excused as %q, want one or the other", id, reason)
+		case !mapped && !excused:
+			t.Errorf("category %d names no product types: add them to ProductTypesByCategory, "+
+				"or say in categoriesWithoutProductTypes why it has none", id)
+		}
+	}
+	for id := range ProductTypesByCategory {
+		if id < 1 || id >= categoryCount {
+			t.Errorf("ProductTypesByCategory holds %d, which is not a category", id)
+		}
+	}
+	for id := range categoriesWithoutProductTypes {
+		if id < 1 || id >= categoryCount {
+			t.Errorf("categoriesWithoutProductTypes holds %d, which is not a category", id)
+		}
+	}
+}
+
+// TestProductTypesByCategoryIsWellFormed catches an entry that would query a
+// name the platform never answers to, which returns nothing and reads exactly
+// like a category that simply has none of that type.
+func TestProductTypesByCategoryIsWellFormed(t *testing.T) {
+	if !slices.IsSorted(AllProductTypes) {
+		t.Error("AllProductTypes is not sorted, so entries below cannot be checked against it by eye")
+	}
+	for id, types := range ProductTypesByCategory {
+		if len(types) == 0 {
+			t.Errorf("category %d maps to no product types; excuse it in categoriesWithoutProductTypes instead", id)
+		}
+		if !slices.IsSorted(types) {
+			t.Errorf("category %d: product types are not sorted: %q", id, types)
+		}
+		for _, productType := range types {
+			if !slices.Contains(AllProductTypes, productType) {
+				t.Errorf("category %d names product type %q, which AllProductTypes does not list", id, productType)
+			}
+		}
+	}
+}
