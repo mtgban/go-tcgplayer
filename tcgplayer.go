@@ -346,7 +346,7 @@ type Client struct {
 // by the first call that needs one.
 func NewClient(publicKey, privateKey string) (*Client, error) {
 	if publicKey == "" || privateKey == "" {
-		return nil, fmt.Errorf("missing public or private key")
+		return nil, errors.New("missing public or private key")
 	}
 
 	tokenClient := retryablehttp.NewClient()
@@ -461,7 +461,11 @@ func (t *authTransport) refreshToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return v.(string), nil
+	token, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("token flight returned %T, not a string", v)
+	}
+	return token, nil
 }
 
 // RoundTrip waits for the rate limiter, then attaches a valid bearer token

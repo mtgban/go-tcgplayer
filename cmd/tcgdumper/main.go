@@ -1,3 +1,6 @@
+// Command tcgdumper writes a category's whole TCGplayer catalog as one
+// json document: its groups, its products with their skus, and the
+// metadata naming the ids those skus carry.
 package main
 
 import (
@@ -147,8 +150,7 @@ func run() int {
 	var failedPages, donePages atomic.Int64
 
 	for i := 0; i < *threadOpt; i++ {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			for job := range pages {
 				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, []string{job.productType}, true, job.offset)
 				if err != nil {
@@ -163,8 +165,7 @@ func run() int {
 					channel <- product
 				}
 			}
-			wg.Done()
-		}()
+		})
 	}
 
 	go func() {

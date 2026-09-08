@@ -138,13 +138,11 @@ func TestTokenFetchedOnceForConcurrentRequests(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
 				t.Error(err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

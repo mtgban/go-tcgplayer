@@ -1,0 +1,49 @@
+# Style rules the tree already satisfies, so that a regression is caught at
+# review time rather than found in a later sweep. The set is go-mtgban's,
+# which this package is read by, so a habit picked up in one reads the same
+# in the other.
+
+ignoreGeneratedHeader = false
+severity = "error"
+confidence = 0.8
+errorCode = 1
+warningCode = 1
+
+[rule.blank-imports]
+[rule.context-as-argument]
+[rule.context-keys-type]
+[rule.dot-imports]
+[rule.empty-block]
+[rule.error-naming]
+[rule.error-return]
+[rule.error-strings]
+[rule.exported]
+[rule.errorf]
+[rule.increment-decrement]
+[rule.indent-error-flow]
+[rule.package-comments]
+[rule.range]
+[rule.receiver-naming]
+[rule.redefines-builtin-id]
+[rule.superfluous-else]
+[rule.time-naming]
+[rule.unexported-return]
+[rule.unnecessary-format]
+# go-mtgban leaves this one out: its preprocessors hold dozens of one-case
+# switches on a card name, which the rule reads as a construct to collapse
+# and which are really an edition needing one exception today. There is no
+# such code here, and the rule reports nothing, so it is kept.
+[rule.unnecessary-stmt]
+[rule.unchecked-type-assertion]
+[rule.use-any]
+[rule.use-waitgroup-go]
+[rule.use-errors-new]
+# The dumper reports its progress to stderr, where a failed write is not
+# something the run could act on. Nothing else here ignores an error, so
+# this is the only family excused; go-mtgban excuses several more that this
+# package has no equivalent of.
+[rule.unhandled-error]
+  arguments = ["fmt.Fprint.*"]
+[rule.unreachable-code]
+[rule.var-declaration]
+[rule.var-naming]
