@@ -42,9 +42,37 @@ var (
 	PricingSKUURL     = "https://api.tcgplayer.com/" + tcgAPIVersion + "/pricing/sku"
 )
 
+// CategoryID identifies a game or product line the catalog is split into.
+type CategoryID int
+
+// ProductID identifies one item in the catalog.
+type ProductID int
+
+// SKUID identifies one sellable variant of a product.
+type SKUID int
+
+// GroupID identifies a set or expansion a category files products under.
+type GroupID int
+
+// ConditionID identifies a condition in a category's metadata.
+type ConditionID int
+
+// LanguageID identifies a language in a category's metadata.
+type LanguageID int
+
+// PrintingID identifies a printing in a category's metadata.
+type PrintingID int
+
+// RarityID identifies a rarity in a category's metadata.
+type RarityID int
+
+// ProductType is a name the catalog files products under, such as Cards.
+// It accepts new names without requiring a library update.
+type ProductType string
+
 // All active categories on the platform
 const (
-	CategoryMagic = iota + 1
+	CategoryMagic CategoryID = iota + 1
 	CategoryYuGiOh
 	CategoryPokemon
 	CategoryAxisAllies
@@ -146,7 +174,7 @@ const (
 // AllProductTypes lists every product type name the platform uses. No
 // category files products under all of them; ProductTypes reports the ones
 // a given category actually uses.
-var AllProductTypes = []string{
+var AllProductTypes = []ProductType{
 	"3D Tokens",
 	"3x Magic Booster Packs",
 	"All 5 Intro Packs",
@@ -188,12 +216,12 @@ var AllProductTypes = []string{
 // ProductTypesSingles lists the product type holding single cards for the
 // categories that name it the common way. Prefer SinglesProductTypes, which
 // answers for the categories naming it after themselves too.
-var ProductTypesSingles = []string{"Cards"}
+var ProductTypesSingles = []ProductType{"Cards"}
 
 // ProductTypesSealed lists the sealed product types Magic files products
 // under. Prefer SealedProductTypes: a category files its own set, and one
 // missing from this list is one whose products go unseen.
-var ProductTypesSealed = []string{
+var ProductTypesSealed = []ProductType{
 	"Booster Box",
 	"Booster Pack",
 	"Sealed Products",
@@ -216,7 +244,7 @@ var ProductTypesSealed = []string{
 // category's whole product count. Categories absent from the map are ones
 // whose vocabulary is not known; ProductTypes falls back to every name for
 // them, which a caller counting its results will find comes up short.
-var ProductTypesByCategory = map[int][]string{
+var ProductTypesByCategory = map[CategoryID][]ProductType{
 	CategoryMagic:                         {"3x Magic Booster Packs", "All 5 Intro Packs", "Booster Battle Pack", "Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Intro Pack Display", "Magic Booster Box Case", "Magic Deck Pack", "Precon/Event Decks", "Sealed Products"},
 	CategoryYuGiOh:                        {"Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Magic Booster Box Case", "Sealed Products", "Tin", "YGO Start Decks"},
 	CategoryPokemon:                       {"Cards", "Sealed Products"},
@@ -293,7 +321,7 @@ var ProductTypesByCategory = map[int][]string{
 
 // ProductTypes returns the product types the given category files its
 // products under, or every known type when the category is not listed.
-func ProductTypes(category int) []string {
+func ProductTypes(category CategoryID) []ProductType {
 	if types, found := ProductTypesByCategory[category]; found {
 		return types
 	}
@@ -304,15 +332,15 @@ func ProductTypes(category int) []string {
 // categories call it Cards; the ones that name it after themselves suffix
 // the game with Singles, as Dragon Ball Super Singles does. No category
 // uses more than one of them.
-func isSinglesType(productType string) bool {
-	return productType == "Cards" || strings.HasSuffix(productType, " Singles")
+func isSinglesType(productType ProductType) bool {
+	return productType == "Cards" || strings.HasSuffix(string(productType), " Singles")
 }
 
 // SinglesProductTypes returns the product types the given category files
 // single cards under. It is empty for the categories that sell none, such
 // as supplies and storage.
-func SinglesProductTypes(category int) []string {
-	var out []string
+func SinglesProductTypes(category CategoryID) []ProductType {
+	var out []ProductType
 	for _, productType := range ProductTypes(category) {
 		if isSinglesType(productType) {
 			out = append(out, productType)
@@ -323,8 +351,8 @@ func SinglesProductTypes(category int) []string {
 
 // SealedProductTypes returns the product types the given category files
 // everything other than single cards under, sealed products above all.
-func SealedProductTypes(category int) []string {
-	var out []string
+func SealedProductTypes(category CategoryID) []ProductType {
+	var out []ProductType
 	for _, productType := range ProductTypes(category) {
 		if !isSinglesType(productType) {
 			out = append(out, productType)
@@ -566,12 +594,12 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 
 // TotalProducts reports how many products a category holds, optionally
 // narrowed to the given product types
-func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
+func (tcg *Client) TotalProducts(ctx context.Context, category CategoryID, productTypes []ProductType) (int, error) {
 	return tcg.queryTotal(ctx, CatalogProductsURL, category, productTypes)
 }
 
 // TotalGroups reports how many groups a category holds
-func (tcg *Client) TotalGroups(ctx context.Context, category int) (int, error) {
+func (tcg *Client) TotalGroups(ctx context.Context, category CategoryID) (int, error) {
 	return tcg.queryTotal(ctx, CatalogGroupsURL, category, nil)
 }
 
@@ -581,7 +609,7 @@ func (tcg *Client) TotalCategories(ctx context.Context) (int, error) {
 }
 
 // queryTotal reports how many items a full listing would return
-func (tcg *Client) queryTotal(ctx context.Context, link string, category int, productTypes []string) (int, error) {
+func (tcg *Client) queryTotal(ctx context.Context, link string, category CategoryID, productTypes []ProductType) (int, error) {
 	u, err := url.Parse(link)
 	if err != nil {
 		return 0, err
@@ -591,7 +619,7 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 		v.Set("categoryId", fmt.Sprint(category))
 	}
 	if productTypes != nil {
-		v.Set("productTypes", strings.Join(productTypes, ","))
+		v.Set("productTypes", joinProductTypes(productTypes))
 	}
 	v.Set("limit", fmt.Sprint(1))
 	u.RawQuery = v.Encode()
@@ -622,14 +650,14 @@ func checkComplete(resp *BaseResponse, got int) error {
 
 // Printing is a finish a category's cards are printed in, such as Foil
 type Printing struct {
-	PrintingID   int    `json:"printingId"`
-	Name         string `json:"name"`
-	DisplayOrder int    `json:"displayOrder"`
-	ModifiedOn   string `json:"modifiedOn"`
+	PrintingID   PrintingID `json:"printingId"`
+	Name         string     `json:"name"`
+	DisplayOrder int        `json:"displayOrder"`
+	ModifiedOn   string     `json:"modifiedOn"`
 }
 
 // ListCategoryPrintings returns the printings a category's skus reference
-func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error) {
+func (tcg *Client) ListCategoryPrintings(ctx context.Context, category CategoryID) ([]Printing, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/printings", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
@@ -649,14 +677,14 @@ func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]P
 
 // Condition is a grade a category's products are sold in, such as Near Mint
 type Condition struct {
-	ConditionID  int    `json:"conditionId"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	DisplayOrder int    `json:"displayOrder"`
+	ConditionID  ConditionID `json:"conditionId"`
+	Name         string      `json:"name"`
+	Abbreviation string      `json:"abbreviation"`
+	DisplayOrder int         `json:"displayOrder"`
 }
 
 // ListCategoryConditions returns the conditions a category's skus reference
-func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]Condition, error) {
+func (tcg *Client) ListCategoryConditions(ctx context.Context, category CategoryID) ([]Condition, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/conditions", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
@@ -676,13 +704,13 @@ func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]
 
 // Language is a language a category's products are printed in
 type Language struct {
-	LanguageID   int    `json:"languageId"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbr"`
+	LanguageID   LanguageID `json:"languageId"`
+	Name         string     `json:"name"`
+	Abbreviation string     `json:"abbr"`
 }
 
 // ListCategoryLanguages returns the languages a category's skus reference
-func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]Language, error) {
+func (tcg *Client) ListCategoryLanguages(ctx context.Context, category CategoryID) ([]Language, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/languages", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
@@ -702,13 +730,13 @@ func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]L
 
 // Rarity is a rarity a category's cards are printed at
 type Rarity struct {
-	RarityID    int    `json:"rarityId"`
-	DisplayText string `json:"displayText"`
-	DBValue     string `json:"dbValue"`
+	RarityID    RarityID `json:"rarityId"`
+	DisplayText string   `json:"displayText"`
+	DBValue     string   `json:"dbValue"`
 }
 
 // ListCategoryRarities returns the rarities a category's products carry
-func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error) {
+func (tcg *Client) ListCategoryRarities(ctx context.Context, category CategoryID) ([]Rarity, error) {
 	resp, err := tcg.Get(ctx, fmt.Sprintf("%s/%d/rarities", CatalogCategoriesURL, category))
 	if err != nil {
 		return nil, err
@@ -728,18 +756,18 @@ func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Ra
 
 // Product is a single item in the catalog, a card or a sealed product
 type Product struct {
-	ProductID  int    `json:"productId"`
-	Name       string `json:"name"`
-	CleanName  string `json:"cleanName"`
-	ImageURL   string `json:"imageUrl"`
-	GroupID    int    `json:"groupId"`
-	URL        string `json:"url"`
-	ModifiedOn string `json:"modifiedOn"`
+	ProductID  ProductID `json:"productId"`
+	Name       string    `json:"name"`
+	CleanName  string    `json:"cleanName"`
+	ImageURL   string    `json:"imageUrl"`
+	GroupID    GroupID   `json:"groupId"`
+	URL        string    `json:"url"`
+	ModifiedOn string    `json:"modifiedOn"`
 
 	// Never returned by the API, which does not report the product type a
 	// product is filed under; tcgdumper stamps the type it fetched the
 	// product by, so it is present in catalog dumps only
-	ProductType string `json:"productType,omitempty"`
+	ProductType ProductType `json:"productType,omitempty"`
 
 	// Only available for catalog API calls
 	Skus []SKU `json:"skus,omitempty"`
@@ -754,7 +782,7 @@ type Product struct {
 // GetProductsDetails returns the details of the given products, at most
 // MaxIDsInRequest of them per call. Pass includeSkus to have each product
 // carry the skus it is sold as.
-func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, includeSkus bool) ([]Product, error) {
+func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []ProductID, includeSkus bool) ([]Product, error) {
 	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
@@ -795,7 +823,7 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, inc
 // ListAllProducts returns one page of a category's products, starting at
 // offset and holding at most MaxItemsInResponse of them. Pair it with
 // TotalProducts to walk a whole category.
-func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
+func (tcg *Client) ListAllProducts(ctx context.Context, category CategoryID, productTypes []ProductType, includeSkus bool, offset int) ([]Product, error) {
 	u, err := url.Parse(CatalogProductsURL)
 	if err != nil {
 		return nil, err
@@ -805,7 +833,7 @@ func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTyp
 	v.Set("getExtendedFields", "true")
 	v.Set("categoryId", fmt.Sprint(category))
 	if productTypes != nil {
-		v.Set("productTypes", strings.Join(productTypes, ","))
+		v.Set("productTypes", joinProductTypes(productTypes))
 	}
 	if includeSkus {
 		v.Set("includeSkus", "true")
@@ -831,15 +859,15 @@ func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTyp
 // SKU is a sellable variant of a product: one combination of language,
 // printing and condition
 type SKU struct {
-	SKUID       int `json:"skuId"`
-	ProductID   int `json:"productId"`
-	LanguageID  int `json:"languageId"`
-	PrintingID  int `json:"printingId"`
-	ConditionID int `json:"conditionId"`
+	SKUID       SKUID       `json:"skuId"`
+	ProductID   ProductID   `json:"productId"`
+	LanguageID  LanguageID  `json:"languageId"`
+	PrintingID  PrintingID  `json:"printingId"`
+	ConditionID ConditionID `json:"conditionId"`
 }
 
 // ListProductSKUs returns the skus a product is sold as
-func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, error) {
+func (tcg *Client) ListProductSKUs(ctx context.Context, productID ProductID) ([]SKU, error) {
 	link := fmt.Sprintf("%s/%d/skus", CatalogProductsURL, productID)
 	resp, err := tcg.Get(ctx, link)
 	if err != nil {
@@ -861,19 +889,19 @@ func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, e
 // Group is a set, expansion or other collection a category files its
 // products under
 type Group struct {
-	GroupID      int    `json:"groupId"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	Supplemental bool   `json:"supplemental"`
-	PublishedOn  string `json:"publishedOn"`
-	ModifiedOn   string `json:"modifiedOn"`
-	CategoryID   int    `json:"categoryId"`
+	GroupID      GroupID    `json:"groupId"`
+	Name         string     `json:"name"`
+	Abbreviation string     `json:"abbreviation"`
+	Supplemental bool       `json:"supplemental"`
+	PublishedOn  string     `json:"publishedOn"`
+	ModifiedOn   string     `json:"modifiedOn"`
+	CategoryID   CategoryID `json:"categoryId"`
 }
 
 // ListAllCategoryGroups returns one page of a category's groups, starting
 // at offset and holding at most MaxItemsInResponse of them. Pair it with
 // TotalGroups to walk a whole category.
-func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error) {
+func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category CategoryID, offset int) ([]Group, error) {
 	u, err := url.Parse(CatalogGroupsURL)
 	if err != nil {
 		return nil, err
@@ -901,21 +929,21 @@ func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset i
 // Category is a game or product line the catalog is split into, such as
 // Magic
 type Category struct {
-	CategoryID        int    `json:"categoryId"`
-	Name              string `json:"name"`
-	ModifiedOn        string `json:"modifiedOn"`
-	DisplayName       string `json:"displayName"`
-	SeoCategoryName   string `json:"seoCategoryName"`
-	SealedLabel       string `json:"sealedLabel"`
-	NonSealedLabel    string `json:"nonSealedLabel"`
-	ConditionGuideURL string `json:"conditionGuideUrl"`
-	IsScannable       bool   `json:"isScannable"`
-	Popularity        int    `json:"popularity"`
+	CategoryID        CategoryID `json:"categoryId"`
+	Name              string     `json:"name"`
+	ModifiedOn        string     `json:"modifiedOn"`
+	DisplayName       string     `json:"displayName"`
+	SeoCategoryName   string     `json:"seoCategoryName"`
+	SealedLabel       string     `json:"sealedLabel"`
+	NonSealedLabel    string     `json:"nonSealedLabel"`
+	ConditionGuideURL string     `json:"conditionGuideUrl"`
+	IsScannable       bool       `json:"isScannable"`
+	Popularity        int        `json:"popularity"`
 }
 
 // GetCategoriesDetails returns the details of the given categories, at most
 // MaxIDsInRequest of them per call
-func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []int) ([]Category, error) {
+func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []CategoryID) ([]Category, error) {
 	if len(categoryIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
@@ -940,27 +968,36 @@ func (tcg *Client) GetCategoriesDetails(ctx context.Context, categoryIDs []int) 
 	return out, nil
 }
 
-func ints2strings(ids []int) []string {
+func ints2strings[T ~int](ids []T) []string {
 	out := make([]string, 0, len(ids))
 	for i := range ids {
-		out = append(out, strconv.Itoa(ids[i]))
+		out = append(out, strconv.Itoa(int(ids[i])))
 	}
 	return out
 }
 
+// joinProductTypes renders the types as the query parameter spells them.
+func joinProductTypes(types []ProductType) string {
+	out := make([]string, 0, len(types))
+	for _, productType := range types {
+		out = append(out, string(productType))
+	}
+	return strings.Join(out, ",")
+}
+
 // ProductPriceSet is the current pricing of one product, for one sub type
 type ProductPriceSet struct {
-	ProductID      int     `json:"productId"`
-	LowPrice       float64 `json:"lowPrice"`
-	MarketPrice    float64 `json:"marketPrice"`
-	MidPrice       float64 `json:"midPrice"`
-	DirectLowPrice float64 `json:"directLowPrice"`
-	SubTypeName    string  `json:"subTypeName"`
+	ProductID      ProductID `json:"productId"`
+	LowPrice       float64   `json:"lowPrice"`
+	MarketPrice    float64   `json:"marketPrice"`
+	MidPrice       float64   `json:"midPrice"`
+	DirectLowPrice float64   `json:"directLowPrice"`
+	SubTypeName    string    `json:"subTypeName"`
 }
 
 // GetMarketPricesByProducts returns the current pricing of the given
 // products, at most MaxIDsInRequest of them per call
-func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []int) ([]ProductPriceSet, error) {
+func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []ProductID) ([]ProductPriceSet, error) {
 	if len(productIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
@@ -987,7 +1024,7 @@ func (tcg *Client) GetMarketPricesByProducts(ctx context.Context, productIDs []i
 
 // SKUPriceSet is the current pricing of one sku
 type SKUPriceSet struct {
-	SKUID              int     `json:"skuId"`
+	SKUID              SKUID   `json:"skuId"`
 	LowPrice           float64 `json:"lowPrice"`
 	LowestShipping     float64 `json:"lowestShipping"`
 	LowestListingPrice float64 `json:"lowestListingPrice"`
@@ -997,7 +1034,7 @@ type SKUPriceSet struct {
 
 // GetMarketPricesBySKUs returns the current pricing of the given skus, at
 // most MaxIDsInRequest of them per call
-func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIDs []int) ([]SKUPriceSet, error) {
+func (tcg *Client) GetMarketPricesBySKUs(ctx context.Context, skuIDs []SKUID) ([]SKUPriceSet, error) {
 	if len(skuIDs) == 0 {
 		return nil, errors.New("no ids in request")
 	}
@@ -1056,14 +1093,14 @@ func (g Group) ReleaseDate() string {
 // PrintingNames maps each product to the distinct printing names its skus
 // carry, ordered as the dump lists the category's printings. A printing the
 // dump does not list for a product is one that product is not sold in.
-func (d *CatalogDump) PrintingNames() map[int][]string {
-	name := map[int]string{}
+func (d *CatalogDump) PrintingNames() map[ProductID][]string {
+	name := map[PrintingID]string{}
 	rank := map[string]int{}
 	for i, printing := range d.Printings {
 		name[printing.PrintingID] = printing.Name
 		rank[printing.Name] = i
 	}
-	out := map[int][]string{}
+	out := map[ProductID][]string{}
 	for _, product := range d.Products {
 		var names []string
 		for _, sku := range product.Skus {

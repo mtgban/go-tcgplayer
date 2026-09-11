@@ -205,7 +205,7 @@ func TestMultiPageProductIdentities(t *testing.T) {
 		t.Fatalf("got %d products", len(dump.Products))
 	}
 	for i, p := range dump.Products {
-		if p.ProductID != ids[i] || p.ProductType != "Cards" || len(p.Skus) != 1 {
+		if p.ProductID != tcgplayer.ProductID(ids[i]) || p.ProductType != "Cards" || len(p.Skus) != 1 {
 			t.Errorf("product %d: %+v", i, p)
 		}
 	}
