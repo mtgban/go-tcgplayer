@@ -2,6 +2,7 @@ package tcgplayer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -73,12 +74,12 @@ func writeEnvelope(w http.ResponseWriter, totalItems int, results string) {
 func TestProductTypesPerCategory(t *testing.T) {
 	// A category naming its types for itself, where asking for "Cards"
 	// would match nothing at all
-	if got := SinglesProductTypes(CategoryDragonBallSuper); !reflect.DeepEqual(got, []string{"Dragon Ball Super Singles"}) {
+	if got := SinglesProductTypes(CategoryDragonBallSuper); !reflect.DeepEqual(got, []ProductType{"Dragon Ball Super Singles"}) {
 		t.Errorf("SinglesProductTypes(dragon ball super) = %q, want [Dragon Ball Super Singles]", got)
 	}
 	// The types Magic's list does not name, and used to lose
 	sealed := SealedProductTypes(CategoryYuGiOh)
-	for _, want := range []string{"Tin", "YGO Start Decks"} {
+	for _, want := range []ProductType{"Tin", "YGO Start Decks"} {
 		if !slices.Contains(sealed, want) {
 			t.Errorf("SealedProductTypes(yugioh) = %q, want it to hold %q", sealed, want)
 		}
@@ -87,7 +88,7 @@ func TestProductTypesPerCategory(t *testing.T) {
 		t.Errorf("SealedProductTypes(yugioh) = %q, want no singles type in it", sealed)
 	}
 	// Singles and sealed have to partition the category's types
-	for _, category := range []int{CategoryMagic, CategoryYuGiOh, CategoryLorcana, CategoryDragonBallSuper} {
+	for _, category := range []CategoryID{CategoryMagic, CategoryYuGiOh, CategoryLorcana, CategoryDragonBallSuper} {
 		got := len(SinglesProductTypes(category)) + len(SealedProductTypes(category))
 		if want := len(ProductTypes(category)); got != want {
 			t.Errorf("category %d: singles+sealed = %d types, want %d", category, got, want)
@@ -295,7 +296,7 @@ func TestGetProductsDetails(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	products, err := tcg.GetProductsDetails(context.Background(), []int{12, 34}, true)
+	products, err := tcg.GetProductsDetails(context.Background(), []ProductID{12, 34}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,32 +315,34 @@ func TestBatchedIdBounds(t *testing.T) {
 		t.Errorf("unexpected request to %s", r.URL)
 	}))
 
-	tooMany := make([]int, MaxIDsInRequest+1)
+	tooManyProducts := make([]ProductID, MaxIDsInRequest+1)
+	tooManyCategories := make([]CategoryID, MaxIDsInRequest+1)
+	tooManySKUs := make([]SKUID, MaxIDsInRequest+1)
 
 	ctx := context.Background()
-	for name, call := range map[string]func([]int) error{
-		"GetProductsDetails": func(ids []int) error {
-			_, err := tcg.GetProductsDetails(ctx, ids, false)
-			return err
-		},
-		"GetCategoriesDetails": func(ids []int) error {
-			_, err := tcg.GetCategoriesDetails(ctx, ids)
-			return err
-		},
-		"GetMarketPricesByProducts": func(ids []int) error {
-			_, err := tcg.GetMarketPricesByProducts(ctx, ids)
-			return err
-		},
-		"GetMarketPricesBySKUs": func(ids []int) error {
-			_, err := tcg.GetMarketPricesBySKUs(ctx, ids)
-			return err
-		},
-	} {
-		if err := call(nil); err == nil {
-			t.Errorf("%s: expected error for empty ids", name)
+	cases := []struct {
+		name           string
+		empty, tooMany func() error
+	}{
+		{"GetProductsDetails",
+			func() error { _, err := tcg.GetProductsDetails(ctx, nil, false); return err },
+			func() error { _, err := tcg.GetProductsDetails(ctx, tooManyProducts, false); return err }},
+		{"GetCategoriesDetails",
+			func() error { _, err := tcg.GetCategoriesDetails(ctx, nil); return err },
+			func() error { _, err := tcg.GetCategoriesDetails(ctx, tooManyCategories); return err }},
+		{"GetMarketPricesByProducts",
+			func() error { _, err := tcg.GetMarketPricesByProducts(ctx, nil); return err },
+			func() error { _, err := tcg.GetMarketPricesByProducts(ctx, tooManyProducts); return err }},
+		{"GetMarketPricesBySKUs",
+			func() error { _, err := tcg.GetMarketPricesBySKUs(ctx, nil); return err },
+			func() error { _, err := tcg.GetMarketPricesBySKUs(ctx, tooManySKUs); return err }},
+	}
+	for _, c := range cases {
+		if err := c.empty(); err == nil {
+			t.Errorf("%s: expected error for empty ids", c.name)
 		}
-		if err := call(tooMany); err == nil {
-			t.Errorf("%s: expected error for more than %d ids", name, MaxIDsInRequest)
+		if err := c.tooMany(); err == nil {
+			t.Errorf("%s: expected error for more than %d ids", c.name, MaxIDsInRequest)
 		}
 	}
 }
@@ -364,7 +367,7 @@ func TestTotalProducts(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	total, err := tcg.TotalProducts(context.Background(), 3, ProductTypesSingles)
+	total, err := tcg.TotalProducts(context.Background(), CategoryPokemon, ProductTypesSingles)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,12 +485,12 @@ func TestTotalCategoriesHasNoCategoryFilter(t *testing.T) {
 }
 
 func TestInts2Strings(t *testing.T) {
-	got := ints2strings([]int{1, 20, 300})
+	got := ints2strings([]ProductID{1, 20, 300})
 	want := []string{"1", "20", "300"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("ints2strings = %v, want %v", got, want)
 	}
-	if out := ints2strings(nil); len(out) != 0 {
+	if out := ints2strings[ProductID](nil); len(out) != 0 {
 		t.Errorf("ints2strings(nil) = %v, want empty", out)
 	}
 }
@@ -496,7 +499,7 @@ func TestInts2Strings(t *testing.T) {
 // leaves out, and why. A category in neither this nor the map is one nobody
 // decided about, which is how Palworld and Cyberpunk came to be dumped
 // against every product type name the platform has rather than their own two.
-var categoriesWithoutProductTypes = map[int]string{
+var categoriesWithoutProductTypes = map[CategoryID]string{
 	// The platform serves products for these, filed under type names it
 	// does not report through the catalog or the search facets. Dumping one
 	// would come up short, and the count check would say so.
@@ -529,7 +532,7 @@ var categoriesWithoutProductTypes = map[int]string{
 // without saying what it files products under, here or in the map, and this
 // fails rather than leaving ProductTypes to fall back silently.
 func TestEveryCategoryIsAccountedFor(t *testing.T) {
-	for id := 1; id < categoryCount; id++ {
+	for id := CategoryID(1); id < categoryCount; id++ {
 		_, mapped := ProductTypesByCategory[id]
 		reason, excused := categoriesWithoutProductTypes[id]
 		switch {
@@ -571,5 +574,51 @@ func TestProductTypesByCategoryIsWellFormed(t *testing.T) {
 				t.Errorf("category %d names product type %q, which AllProductTypes does not list", id, productType)
 			}
 		}
+	}
+}
+
+// Named IDs must retain the catalog's numeric wire format, including map
+// keys used by consumers persisting indexes. Unknown values remain readable.
+func TestIdentifierJSONCompatibility(t *testing.T) {
+	for _, value := range []any{
+		CategoryID(12345), ProductID(12345), SKUID(12345), GroupID(12345),
+		ConditionID(12345), LanguageID(12345), PrintingID(12345), RarityID(12345),
+		ProductType("Future Product Type"),
+	} {
+		t.Run(reflect.TypeOf(value).Name(), func(t *testing.T) {
+			want := "12345"
+			if _, ok := value.(ProductType); ok {
+				want = `"Future Product Type"`
+			}
+			encoded, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(encoded) != want {
+				t.Fatalf("encoded %s, want %s", encoded, want)
+			}
+			decoded := reflect.New(reflect.TypeOf(value))
+			if err := json.Unmarshal([]byte(want), decoded.Interface()); err != nil {
+				t.Fatal(err)
+			}
+			if decoded.Elem().Interface() != value {
+				t.Fatalf("decoded %v, want %v", decoded.Elem(), value)
+			}
+		})
+	}
+	index := map[ProductID][]string{12345: {"Normal", "Foil"}}
+	encoded, err := json.Marshal(index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"12345":["Normal","Foil"]}` {
+		t.Fatalf("index encoded as %s", encoded)
+	}
+	var decoded map[ProductID][]string
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(index, decoded) {
+		t.Fatalf("index roundtrip: %v", decoded)
 	}
 }

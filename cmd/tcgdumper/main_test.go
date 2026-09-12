@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -103,11 +104,13 @@ func serveCatalog(t *testing.T, byType map[string][]int, categoryTotal, dropFrom
 
 // runDumper runs the program against the stubbed API, returning its exit
 // code and what it wrote to stderr.
-func runDumper(t *testing.T) (int, string) {
+func runDumperOutput(t *testing.T, args ...string) (int, string, []byte) {
 	t.Helper()
 
+	savedFlags, savedArgs := flag.CommandLine, os.Args
+	t.Cleanup(func() { flag.CommandLine, os.Args = savedFlags, savedArgs })
 	flag.CommandLine = flag.NewFlagSet("tcgdumper", flag.ContinueOnError)
-	os.Args = []string{"tcgdumper", "-category", "1", "-thread", "2", "-pub", "k", "-pri", "k"}
+	os.Args = append([]string{"tcgdumper", "-category", "1", "-thread", "2", "-pub", "k", "-pri", "k"}, args...)
 
 	outFile, err := os.CreateTemp(t.TempDir(), "dump")
 	if err != nil {
@@ -117,7 +120,10 @@ func runDumper(t *testing.T) (int, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer outFile.Close()
+	defer errFile.Close()
 	stdout, stderr := os.Stdout, os.Stderr
+	defer func() { os.Stdout, os.Stderr = stdout, stderr }()
 	os.Stdout, os.Stderr = outFile, errFile
 	code := run()
 	os.Stdout, os.Stderr = stdout, stderr
@@ -126,7 +132,14 @@ func runDumper(t *testing.T) (int, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return code, string(logged)
+	data, err := os.ReadFile(outFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 && len(data) != 0 {
+		t.Error("failed dump wrote JSON")
+	}
+	return code, string(logged), data
 }
 
 func TestDumpsEveryProduct(t *testing.T) {
@@ -165,5 +178,83 @@ func TestShortPageFailsTheDump(t *testing.T) {
 	}
 	if !strings.Contains(logged, "expected 3 products but collected 2") {
 		t.Errorf("stderr does not report the shortfall:\n%s", logged)
+	}
+}
+
+func runDumper(t *testing.T) (int, string) {
+	t.Helper()
+	code, logged, _ := runDumperOutput(t)
+	return code, logged
+}
+
+func TestMultiPageProductIdentities(t *testing.T) {
+	ids := make([]int, tcgplayer.MaxItemsInResponse+3)
+	for i := range ids {
+		ids[i] = i + 1
+	}
+	serveCatalog(t, map[string][]int{"Cards": ids}, len(ids), 0)
+	code, logged, data := runDumperOutput(t)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, logged)
+	}
+	var dump tcgplayer.CatalogDump
+	if err := json.Unmarshal(data, &dump); err != nil {
+		t.Fatal(err)
+	}
+	if len(dump.Products) != len(ids) {
+		t.Fatalf("got %d products", len(dump.Products))
+	}
+	for i, p := range dump.Products {
+		if p.ProductID != tcgplayer.ProductID(ids[i]) || p.ProductType != "Cards" || len(p.Skus) != 1 {
+			t.Errorf("product %d: %+v", i, p)
+		}
+	}
+}
+
+func TestDuplicateProductMasksMissingProduct(t *testing.T) {
+	serveCatalog(t, map[string][]int{"Cards": {1, 1, 3}}, 3, 0)
+	code, logged := runDumper(t)
+	if code == 0 || !strings.Contains(logged, "duplicate product") {
+		t.Fatalf("exit %d: %s", code, logged)
+	}
+}
+
+func TestOverlappingTypes(t *testing.T) {
+	for _, total := range []int{3, 4} {
+		t.Run(strconv.Itoa(total), func(t *testing.T) {
+			serveCatalog(t, map[string][]int{"Cards": {1, 2}, "Sealed Products": {2, 3}}, total, 0)
+			code, logged := runDumper(t)
+			if (code == 0) != (total == 3) {
+				t.Fatalf("exit %d: %s", code, logged)
+			}
+		})
+	}
+}
+
+func TestGroupIntegrity(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		groups   []tcgplayer.Group
+		products []tcgplayer.Product
+	}{
+		{"duplicate", []tcgplayer.Group{{GroupID: 1}, {GroupID: 1}}, nil},
+		{"missing", []tcgplayer.Group{{GroupID: 1}}, []tcgplayer.Product{{ProductID: 1, GroupID: 2}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateCatalog(tt.groups, tt.products, len(tt.groups), len(tt.products), len(tt.products), 0); err == nil {
+				t.Fatal("accepted invalid groups")
+			}
+		})
+	}
+}
+
+func TestInvalidWorkerCount(t *testing.T) {
+	for _, threads := range []string{"0", "-1"} {
+		t.Run(threads, func(t *testing.T) {
+			code, logged, _ := runDumperOutput(t, "-thread", threads)
+			if code == 0 || !strings.Contains(logged, "thread must be positive") {
+				t.Fatalf("exit %d: %s", code, logged)
+			}
+		})
 	}
 }

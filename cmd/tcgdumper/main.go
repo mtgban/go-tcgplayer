@@ -34,10 +34,17 @@ func run() int {
 		priKey = os.Getenv("TCGPLAYER_PRIVATE_KEY")
 	}
 
+	if *threadOpt < 1 {
+		fmt.Fprintln(os.Stderr, "thread must be positive")
+		return 1
+	}
+
 	if *categoryOpt == 0 {
 		fmt.Fprintln(os.Stderr, "Missing category id")
 		return 1
 	}
+
+	category := tcgplayer.CategoryID(*categoryOpt)
 
 	tcgClient, err := tcgplayer.NewClient(pubKey, priKey)
 	if err != nil {
@@ -45,7 +52,7 @@ func run() int {
 		return 1
 	}
 
-	categories, err := tcgClient.GetCategoriesDetails(context.Background(), []int{*categoryOpt})
+	categories, err := tcgClient.GetCategoriesDetails(context.Background(), []tcgplayer.CategoryID{category})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -56,36 +63,36 @@ func run() int {
 	}
 	fmt.Fprintln(os.Stderr, "Retrieved category details")
 
-	conditions, err := tcgClient.ListCategoryConditions(context.Background(), *categoryOpt)
+	conditions, err := tcgClient.ListCategoryConditions(context.Background(), category)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	languages, err := tcgClient.ListCategoryLanguages(context.Background(), *categoryOpt)
+	languages, err := tcgClient.ListCategoryLanguages(context.Background(), category)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	printings, err := tcgClient.ListCategoryPrintings(context.Background(), *categoryOpt)
+	printings, err := tcgClient.ListCategoryPrintings(context.Background(), category)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	rarities, err := tcgClient.ListCategoryRarities(context.Background(), *categoryOpt)
+	rarities, err := tcgClient.ListCategoryRarities(context.Background(), category)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "Retrieved sku metadata")
 
-	totalgroups, err := tcgClient.TotalGroups(context.Background(), *categoryOpt)
+	totalgroups, err := tcgClient.TotalGroups(context.Background(), category)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	var groups []tcgplayer.Group
 	for i := 0; i < totalgroups; i += tcgplayer.MaxItemsInResponse {
-		out, err := tcgClient.ListAllCategoryGroups(context.Background(), *categoryOpt, i)
+		out, err := tcgClient.ListAllCategoryGroups(context.Background(), category, i)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -99,13 +106,14 @@ func run() int {
 	// separately and stamp the products with the type they answered to.
 	// Each category names its own types, so ask for that category's.
 	type page struct {
-		productType string
+		productType tcgplayer.ProductType
 		offset      int
+		expected    int
 	}
 	var jobs []page
 	totalProducts := 0
-	for _, productType := range tcgplayer.ProductTypes(*categoryOpt) {
-		total, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, []string{productType})
+	for _, productType := range tcgplayer.ProductTypes(category) {
+		total, err := tcgClient.TotalProducts(context.Background(), category, []tcgplayer.ProductType{productType})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -116,7 +124,7 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "Found", total, productType, "products")
 		totalProducts += total
 		for i := 0; i < total; i += tcgplayer.MaxItemsInResponse {
-			jobs = append(jobs, page{productType, i})
+			jobs = append(jobs, page{productType, i, min(tcgplayer.MaxItemsInResponse, total-i)})
 		}
 	}
 	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
@@ -125,7 +133,7 @@ func run() int {
 	// with no filter at all is the only way to see a product whose type is
 	// missing from AllProductTypes: counting the union of that same list
 	// cannot report what the list does not name.
-	categoryTotal, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, nil)
+	categoryTotal, err := tcgClient.TotalProducts(context.Background(), category, nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -152,9 +160,12 @@ func run() int {
 	for i := 0; i < *threadOpt; i++ {
 		wg.Go(func() {
 			for job := range pages {
-				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, []string{job.productType}, true, job.offset)
+				products, err := tcgClient.ListAllProducts(context.Background(), category, []tcgplayer.ProductType{job.productType}, true, job.offset)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, job.productType, "page at offset", job.offset, "failed:", err)
+					failedPages.Add(1)
+				} else if len(products) != job.expected {
+					fmt.Fprintf(os.Stderr, "%s page at offset %d: expected %d products but collected %d\n", job.productType, job.offset, job.expected, len(products))
 					failedPages.Add(1)
 				}
 				if done := donePages.Add(1); done%50 == 0 || done == int64(totalPages) {
@@ -196,38 +207,65 @@ func run() int {
 	output.Products = products
 	output.Groups = groups
 
+	if err := validateCatalog(groups, products, totalgroups, totalProducts, categoryTotal, failedPages.Load()); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	if prettyOpt {
 		enc.SetIndent("", "  ")
 	}
-	err = enc.Encode(output)
-	if err != nil {
+	if err := enc.Encode(output); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "Dumped", len(products), "products and", len(groups), "groups")
 
-	// Everything counted up front has to come back, whether or not a page
-	// reported an error: a page that simply answered short is a silent loss
-	incomplete := false
-	if failed := failedPages.Load(); failed > 0 {
-		fmt.Fprintln(os.Stderr, failed, "pages failed to download")
-		incomplete = true
+	return 0
+}
+
+// validateCatalog checks identities as well as counts before any JSON is written.
+// Counts are a snapshot, so a catalog changing during pagination can still
+// require a retry; they cannot establish an atomic view of the remote catalog.
+func validateCatalog(groups []tcgplayer.Group, products []tcgplayer.Product, totalGroups, totalProducts, categoryTotal int, failedPages int64) error {
+	if failedPages != 0 {
+		return fmt.Errorf("%d pages failed to download", failedPages)
 	}
-	if len(groups) != totalgroups {
-		fmt.Fprintln(os.Stderr, "expected", totalgroups, "groups but collected", len(groups))
-		incomplete = true
+	if len(groups) != totalGroups {
+		return fmt.Errorf("expected %d groups but collected %d", totalGroups, len(groups))
 	}
 	if len(products) != totalProducts {
-		fmt.Fprintln(os.Stderr, "expected", totalProducts, "products but collected", len(products))
-		incomplete = true
+		return fmt.Errorf("expected %d products but collected %d", totalProducts, len(products))
 	}
-	if incomplete {
-		fmt.Fprintln(os.Stderr, "output is incomplete")
-		return 1
+	groupIDs := make(map[tcgplayer.GroupID]bool, len(groups))
+	for _, group := range groups {
+		if groupIDs[group.GroupID] {
+			return fmt.Errorf("duplicate group %d", group.GroupID)
+		}
+		groupIDs[group.GroupID] = true
 	}
-
-	return 0
+	productIDs := make(map[tcgplayer.ProductID]bool, len(products))
+	type membership struct {
+		id          tcgplayer.ProductID
+		productType tcgplayer.ProductType
+	}
+	memberships := make(map[membership]bool, len(products))
+	for _, product := range products {
+		key := membership{product.ProductID, product.ProductType}
+		if memberships[key] {
+			return fmt.Errorf("duplicate product %d within type %q", product.ProductID, product.ProductType)
+		}
+		memberships[key] = true
+		productIDs[product.ProductID] = true
+		if !groupIDs[product.GroupID] {
+			return fmt.Errorf("product %d references missing group %d", product.ProductID, product.GroupID)
+		}
+	}
+	if len(productIDs) != categoryTotal {
+		return fmt.Errorf("expected %d unique products but collected %d", categoryTotal, len(productIDs))
+	}
+	return nil
 }
 
 func main() {

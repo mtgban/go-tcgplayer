@@ -42,13 +42,22 @@ func main() {
         // <handle err>
     }
 
-    rows, err := c.GetMarketPricesByProducts(context.TODO(), []int{12345, 67890})
+    rows, err := c.GetMarketPricesByProducts(context.TODO(), []tcgplayer.ProductID{12345, 67890})
     if err != nil {
         // <handle err>
     }
     fmt.Println("retrieved rows:", len(rows))
 }
 ```
+
+---
+
+## Identifier types
+
+IDs use distinct integer types: `CategoryID`, `GroupID`, `ProductID`, `SKUID`,
+`ConditionID`, `LanguageID`, `PrintingID`, and `RarityID`. Category constants
+such as `CategoryMagic` have type `CategoryID`. Product type names use
+`ProductType`, a string type that also accepts new vendor names.
 
 ---
 
@@ -67,23 +76,23 @@ Tokens are fetched from TCGplayer's `/token` endpoint using `grant_type=client_c
 ## Catalog helpers
 
 - **Categories**
-  - `GetCategoriesDetails(ctx context.Context, ids []int) ([]Category, error)`
+  - `GetCategoriesDetails(ctx context.Context, ids []CategoryID) ([]Category, error)`
   - `TotalCategories(ctx context.Context) (int, error)`
 
 - **Groups**
-  - `ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error)`
-  - `TotalGroups(ctx context.Context, category int) (int, error)`
+  - `ListAllCategoryGroups(ctx context.Context, category CategoryID, offset int) ([]Group, error)`
+  - `TotalGroups(ctx context.Context, category CategoryID) (int, error)`
 
 - **Products**
-  - `GetProductsDetails(ctx context.Context, ids []int, includeSkus bool) ([]Product, error)`
-  - `ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error)`
-  - `ListProductSKUs(ctx context.Context, productId int) ([]SKU, error)`
+  - `GetProductsDetails(ctx context.Context, ids []ProductID, includeSkus bool) ([]Product, error)`
+  - `ListAllProducts(ctx context.Context, category CategoryID, productTypes []ProductType, includeSkus bool, offset int) ([]Product, error)`
+  - `ListProductSKUs(ctx context.Context, productID ProductID) ([]SKU, error)`
 
 - **Category metadata** (decodes the ids referenced by SKUs)
-  - `ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error)`
-  - `ListCategoryConditions(ctx context.Context, category int) ([]Condition, error)`
-  - `ListCategoryLanguages(ctx context.Context, category int) ([]Language, error)`
-  - `ListCategoryRarities(ctx context.Context, category int) ([]Rarity, error)`
+  - `ListCategoryPrintings(ctx context.Context, category CategoryID) ([]Printing, error)`
+  - `ListCategoryConditions(ctx context.Context, category CategoryID) ([]Condition, error)`
+  - `ListCategoryLanguages(ctx context.Context, category CategoryID) ([]Language, error)`
+  - `ListCategoryRarities(ctx context.Context, category CategoryID) ([]Rarity, error)`
 
 ### Product type filters
 
@@ -95,8 +104,8 @@ Tokens are fetched from TCGplayer's `/token` endpoint using `grant_type=client_c
 
 ## Pricing helpers
 
-- `GetMarketPricesByProducts(ctx, productIds []int) ([]ProductPriceSet, error)`
-- `GetMarketPricesBySKUs(ctx, skuIds []int) ([]SKUPriceSet, error)`
+- `GetMarketPricesByProducts(ctx, productIDs []ProductID) ([]ProductPriceSet, error)`
+- `GetMarketPricesBySKUs(ctx, skuIDs []SKUID) ([]SKUPriceSet, error)`
 
 Each returns rows with the latest market pricing for the given IDs.
 
