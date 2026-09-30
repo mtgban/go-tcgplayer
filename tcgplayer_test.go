@@ -2,6 +2,7 @@ package tcgplayer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -157,8 +158,9 @@ func TestTokenRefreshedNearExpiry(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		tokenRequests.Add(1)
-		// Already inside the 5 minute refresh buffer
-		writeToken(w, 0)
+		// Good for another minute, which is inside the 5 minute refresh
+		// buffer: a token that has not expired yet must still be replaced
+		writeToken(w, 60)
 	})
 	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 0, `[]`)
@@ -571,5 +573,388 @@ func TestProductTypesByCategoryIsWellFormed(t *testing.T) {
 				t.Errorf("category %d names product type %q, which AllProductTypes does not list", id, productType)
 			}
 		}
+	}
+}
+
+// TestTotalOfNothingIsZero covers the API answering an empty result set with
+// a not-found: for a count, that is the answer and not a failure.
+func TestTotalOfNothingIsZero(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"totalItems": 0, "success": false, "errors": ["No products were found."], "results": []}`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	total, err := tcg.TotalProducts(context.Background(), 3, []string{"Tin"})
+	if err != nil {
+		t.Fatalf("TotalProducts() error = %v, want nil", err)
+	}
+	if total != 0 {
+		t.Errorf("TotalProducts() = %d, want 0", total)
+	}
+}
+
+func TestRoundTripLeavesTheRequestAlone(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer test-token")
+		}
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, CatalogProductsURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := tcg.client.HTTPClient.Transport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Errorf("caller's request carries Authorization = %q after RoundTrip, want none", got)
+	}
+}
+
+// extendedField is the element type of Product.ExtendedData, which is an
+// unnamed struct; an alias lets the tests below spell it.
+type extendedField = struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Value       string `json:"value"`
+}
+
+// The fixtures from here on set every field of the type they decode into, each
+// to a value no other field in the object shares, so a tag naming the wrong
+// field fails as surely as a tag naming none.
+
+func TestListAllProducts(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		for key, want := range map[string]string{
+			"getExtendedFields": "true",
+			"categoryId":        "2",
+			"productTypes":      "Cards,Tin",
+			"includeSkus":       "true",
+			"offset":            "200",
+			"limit":             "100",
+		} {
+			if got := q.Get(key); got != want {
+				t.Errorf("%s = %q, want %q", key, got, want)
+			}
+		}
+		writeEnvelope(w, 201, `[{
+			"productId": 101, "name": "Dark Magician", "cleanName": "Dark Magician Clean",
+			"imageUrl": "https://example.com/101.jpg", "groupId": 10,
+			"url": "https://example.com/product/101", "modifiedOn": "2026-01-05T00:00:00",
+			"extendedData": [
+				{"name": "Number", "displayName": "Card Number", "value": "LOB-005"},
+				{"name": "Rarity", "displayName": "Rarity", "value": "Ultra Rare"}
+			],
+			"skus": [{"skuId": 1010, "productId": 101, "languageId": 1, "printingId": 2, "conditionId": 3}]
+		}]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	products, err := tcg.ListAllProducts(context.Background(), 2, []string{"Cards", "Tin"}, true, 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Product{{
+		ProductID:  101,
+		Name:       "Dark Magician",
+		CleanName:  "Dark Magician Clean",
+		ImageURL:   "https://example.com/101.jpg",
+		GroupID:    10,
+		URL:        "https://example.com/product/101",
+		ModifiedOn: "2026-01-05T00:00:00",
+		Skus:       []SKU{{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3}},
+		ExtendedData: []extendedField{
+			{Name: "Number", DisplayName: "Card Number", Value: "LOB-005"},
+			{Name: "Rarity", DisplayName: "Rarity", Value: "Ultra Rare"},
+		},
+	}}
+	if !reflect.DeepEqual(products, want) {
+		t.Errorf("ListAllProducts() = %+v, want %+v", products, want)
+	}
+}
+
+func TestListProductSKUs(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products/101/skus", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 2, `[
+			{"skuId": 1010, "productId": 101, "languageId": 1, "printingId": 2, "conditionId": 3},
+			{"skuId": 1011, "productId": 101, "languageId": 4, "printingId": 5, "conditionId": 6}
+		]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	skus, err := tcg.ListProductSKUs(context.Background(), 101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []SKU{
+		{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3},
+		{SKUID: 1011, ProductID: 101, LanguageID: 4, PrintingID: 5, ConditionID: 6},
+	}
+	if !reflect.DeepEqual(skus, want) {
+		t.Errorf("ListProductSKUs() = %+v, want %+v", skus, want)
+	}
+}
+
+func TestListAllCategoryGroups(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/groups", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		for key, want := range map[string]string{"categoryId": "2", "offset": "100", "limit": "100"} {
+			if got := q.Get(key); got != want {
+				t.Errorf("%s = %q, want %q", key, got, want)
+			}
+		}
+		writeEnvelope(w, 101, `[{
+			"groupId": 10, "name": "Legend of Blue Eyes White Dragon", "abbreviation": "LOB",
+			"supplemental": true, "publishedOn": "2002-03-08T00:00:00",
+			"modifiedOn": "2026-01-04T00:00:00", "categoryId": 2
+		}]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	groups, err := tcg.ListAllCategoryGroups(context.Background(), 2, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Group{{
+		GroupID:      10,
+		Name:         "Legend of Blue Eyes White Dragon",
+		Abbreviation: "LOB",
+		Supplemental: true,
+		PublishedOn:  "2002-03-08T00:00:00",
+		ModifiedOn:   "2026-01-04T00:00:00",
+		CategoryID:   2,
+	}}
+	if !reflect.DeepEqual(groups, want) {
+		t.Errorf("ListAllCategoryGroups() = %+v, want %+v", groups, want)
+	}
+}
+
+func TestGetCategoriesDetails(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/categories/2", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 1, `[{
+			"categoryId": 2, "name": "YuGiOh", "modifiedOn": "2026-01-01T00:00:00",
+			"displayName": "YuGiOh Display", "seoCategoryName": "yugioh-seo",
+			"sealedLabel": "Sealed Label", "nonSealedLabel": "Singles Label",
+			"conditionGuideUrl": "https://example.com/guide", "isScannable": true, "popularity": 42
+		}]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	categories, err := tcg.GetCategoriesDetails(context.Background(), []int{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Category{{
+		CategoryID:        2,
+		Name:              "YuGiOh",
+		ModifiedOn:        "2026-01-01T00:00:00",
+		DisplayName:       "YuGiOh Display",
+		SeoCategoryName:   "yugioh-seo",
+		SealedLabel:       "Sealed Label",
+		NonSealedLabel:    "Singles Label",
+		ConditionGuideURL: "https://example.com/guide",
+		IsScannable:       true,
+		Popularity:        42,
+	}}
+	if !reflect.DeepEqual(categories, want) {
+		t.Errorf("GetCategoriesDetails() = %+v, want %+v", categories, want)
+	}
+}
+
+func TestListCategoryPrintings(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/categories/2/printings", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 2, `[
+			{"printingId": 7, "name": "1st Edition", "displayOrder": 1, "modifiedOn": "2026-01-02T00:00:00"},
+			{"printingId": 8, "name": "Unlimited", "displayOrder": 2, "modifiedOn": "2026-01-03T00:00:00"}
+		]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	printings, err := tcg.ListCategoryPrintings(context.Background(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Printing{
+		{PrintingID: 7, Name: "1st Edition", DisplayOrder: 1, ModifiedOn: "2026-01-02T00:00:00"},
+		{PrintingID: 8, Name: "Unlimited", DisplayOrder: 2, ModifiedOn: "2026-01-03T00:00:00"},
+	}
+	if !reflect.DeepEqual(printings, want) {
+		t.Errorf("ListCategoryPrintings() = %+v, want %+v", printings, want)
+	}
+}
+
+func TestGetMarketPricesByProducts(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/pricing/product/101,205", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 2, `[
+			{"productId": 101, "lowPrice": 1.25, "marketPrice": 2.5, "midPrice": 3.75,
+			 "directLowPrice": 4.5, "subTypeName": "Normal"},
+			{"productId": 205, "lowPrice": 5.25, "marketPrice": 6.5, "midPrice": 7.75,
+			 "directLowPrice": 8.5, "subTypeName": "Foil"}
+		]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	prices, err := tcg.GetMarketPricesByProducts(context.Background(), []int{101, 205})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ProductPriceSet{
+		{ProductID: 101, LowPrice: 1.25, MarketPrice: 2.5, MidPrice: 3.75, DirectLowPrice: 4.5, SubTypeName: "Normal"},
+		{ProductID: 205, LowPrice: 5.25, MarketPrice: 6.5, MidPrice: 7.75, DirectLowPrice: 8.5, SubTypeName: "Foil"},
+	}
+	if !reflect.DeepEqual(prices, want) {
+		t.Errorf("GetMarketPricesByProducts() = %+v, want %+v", prices, want)
+	}
+}
+
+func TestGetMarketPricesBySKUs(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/pricing/sku/1010,2050", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 2, `[
+			{"skuId": 1010, "lowPrice": 1.5, "lowestShipping": 0.99, "lowestListingPrice": 1.49,
+			 "marketPrice": 2.25, "directLowPrice": 1.75},
+			{"skuId": 2050, "lowPrice": 3.5, "lowestShipping": 1.99, "lowestListingPrice": 3.49,
+			 "marketPrice": 4.25, "directLowPrice": 3.75}
+		]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	prices, err := tcg.GetMarketPricesBySKUs(context.Background(), []int{1010, 2050})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []SKUPriceSet{
+		{SKUID: 1010, LowPrice: 1.5, LowestShipping: 0.99, LowestListingPrice: 1.49, MarketPrice: 2.25, DirectLowPrice: 1.75},
+		{SKUID: 2050, LowPrice: 3.5, LowestShipping: 1.99, LowestListingPrice: 3.49, MarketPrice: 4.25, DirectLowPrice: 3.75},
+	}
+	if !reflect.DeepEqual(prices, want) {
+		t.Errorf("GetMarketPricesBySKUs() = %+v, want %+v", prices, want)
+	}
+}
+
+func TestProductExtended(t *testing.T) {
+	var product Product
+	err := json.Unmarshal([]byte(`{"productId": 101, "extendedData": [
+		{"name": "Number", "displayName": "Card Number", "value": "LOB-005"},
+		{"name": "Rarity", "displayName": "Rarity", "value": "Ultra Rare"}
+	]}`), &product)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		name string
+		want string
+	}{
+		{"Number", "LOB-005"},
+		{"Rarity", "Ultra Rare"},
+		// Looked up by name, never by the label the storefront shows
+		{"Card Number", ""},
+		{"Attribute", ""},
+	} {
+		if got := product.Extended(tt.name); got != tt.want {
+			t.Errorf("Extended(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+	// Sealed products routinely carry no extended data at all
+	if got := (Product{}).Extended("Number"); got != "" {
+		t.Errorf("Extended(%q) on a product without extended data = %q, want empty", "Number", got)
+	}
+}
+
+func TestGroupReleaseDate(t *testing.T) {
+	for _, tt := range []struct {
+		publishedOn string
+		want        string
+	}{
+		{"2002-03-08T00:00:00", "2002-03-08"},
+		{"2002-03-08", "2002-03-08"},
+		{"", ""},
+	} {
+		if got := (Group{PublishedOn: tt.publishedOn}).ReleaseDate(); got != tt.want {
+			t.Errorf("ReleaseDate() of %q = %q, want %q", tt.publishedOn, got, tt.want)
+		}
+	}
+}
+
+func TestPrintingNames(t *testing.T) {
+	// The listing order differs from id order, so an ordering by id shows
+	var dump CatalogDump
+	err := json.Unmarshal([]byte(`{
+		"printings": [
+			{"printingId": 3, "name": "Normal"},
+			{"printingId": 1, "name": "Foil"},
+			{"printingId": 2, "name": "Cold Foil"}
+		],
+		"products": [
+			{"productId": 101, "skus": [{"skuId": 1, "printingId": 1}, {"skuId": 2, "printingId": 3}, {"skuId": 3, "printingId": 1}]},
+			{"productId": 102, "skus": [{"skuId": 4, "printingId": 2}]},
+			{"productId": 103, "skus": [{"skuId": 5, "printingId": 99}]},
+			{"productId": 104}
+		]
+	}`), &dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[int][]string{
+		101: {"Normal", "Foil"},
+		102: {"Cold Foil"},
+		103: nil,
+		104: nil,
+	}
+	if got := dump.PrintingNames(); !reflect.DeepEqual(got, want) {
+		t.Errorf("PrintingNames() = %q, want %q", got, want)
 	}
 }
