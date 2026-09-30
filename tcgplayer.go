@@ -186,13 +186,19 @@ var AllProductTypes = []string{
 }
 
 // ProductTypesSingles lists the product type holding single cards for the
-// categories that name it the common way. Prefer SinglesProductTypes, which
-// answers for the categories naming it after themselves too.
+// categories that name it the common way.
+//
+// Deprecated: use SinglesProductTypes, which answers for the categories that
+// name their singles after themselves too. Asking those for Cards finds
+// nothing.
 var ProductTypesSingles = []string{"Cards"}
 
 // ProductTypesSealed lists the sealed product types Magic files products
-// under. Prefer SealedProductTypes: a category files its own set, and one
-// missing from this list is one whose products go unseen.
+// under.
+//
+// Deprecated: use SealedProductTypes. Each category files sealed products
+// under its own set of types, and a type missing from this list is one whose
+// products go unseen: Yu-Gi-Oh's Tin and YGO Start Decks are two.
 var ProductTypesSealed = []string{
 	"Booster Box",
 	"Booster Pack",

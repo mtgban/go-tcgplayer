@@ -190,7 +190,7 @@ Final Fantasy and Star Wars Destiny name their singles after themselves, and
 asking those categories for `Cards` returns zero.
 
 `ProductTypesSingles` and `ProductTypesSealed` are the older, category-less
-pair, kept because scrapers elsewhere index into them. Prefer the functions.
+pair, and are deprecated: they name Magic's types only. Use the functions.
 
 ---
 
