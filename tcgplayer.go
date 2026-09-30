@@ -482,7 +482,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	// Load exisiting data if present
+	// Load existing data if present
 	t.mtx.RLock()
 	token, expires := t.token, t.expires
 	t.mtx.RUnlock()
@@ -1053,7 +1053,6 @@ func (p Product) Extended(name string) string {
 	return ""
 }
 
-// ReleaseDate is the group's publish date without the time of day.
 // ReleaseDate is the day the group was published, without the time of day
 func (g Group) ReleaseDate() string {
 	return strings.SplitN(g.PublishedOn, "T", 2)[0]
