@@ -212,7 +212,7 @@ difference is the contract, not a detail.
 
 ## 6. The endpoints
 
-Three access shapes, with different rules:
+Four access shapes, with different rules:
 
 | Shape | Endpoints | Rule |
 | --- | --- | --- |

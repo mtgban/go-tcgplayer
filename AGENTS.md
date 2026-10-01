@@ -56,7 +56,7 @@ cmd/tcgdumper/          the dump program and its end-to-end tests
 .github/dependabot.yml              weekly action and Go module updates
 ```
 
-One file holds the library on purpose. It is ~1,100 lines, most of it two
+One file holds the library on purpose. It is ~1,200 lines, most of it two
 tables (92 categories, 72 product type vocabularies) and the endpoint
 wrappers, which are near-identical by design — each one counts its ids,
 builds a URL, calls `Get`, and decodes `Results` into its own slice. Resist
