@@ -453,19 +453,44 @@ func (t *authTransport) requestToken(ctx context.Context) (string, time.Time, er
 	return response.AccessToken, expires, nil
 }
 
-func (t *authTransport) refreshToken(ctx context.Context) (string, error) {
+// usable returns the held token when it is still good for a request and is
+// not the one the server just rejected
+func (t *authTransport) usable(rejected string) (string, bool) {
+	t.mtx.RLock()
+	defer t.mtx.RUnlock()
+	if t.token == "" || t.token == rejected || time.Now().After(t.expires.Add(-5*time.Minute)) {
+		return "", false
+	}
+	return t.token, true
+}
+
+// currentToken returns a token to send, acquiring a new one when none is
+// held, the held one is near expiry, or it is the one rejected
+func (t *authTransport) currentToken(ctx context.Context, rejected string) (string, error) {
+	if token, ok := t.usable(rejected); ok {
+		return token, nil
+	}
+	return t.refreshToken(ctx, rejected)
+}
+
+func (t *authTransport) refreshToken(ctx context.Context, rejected string) (string, error) {
 	// Run this only once for concurrent requests
 	v, err, _ := t.sf.Do("oauth_token", func() (any, error) {
+		// A fetch that finished while this caller queued may have left a
+		// token it can use
+		if token, ok := t.usable(rejected); ok {
+			return token, nil
+		}
 		tok, exp, err := t.requestToken(ctx)
 		if err != nil {
 			return nil, err
 		}
-		// Update internal state under lock
 		t.mtx.Lock()
 		t.token, t.expires = tok, exp
 		t.mtx.Unlock()
 		return tok, nil
 	})
+
 	if err != nil {
 		return "", err
 	}
@@ -476,38 +501,58 @@ func (t *authTransport) refreshToken(ctx context.Context) (string, error) {
 	return token, nil
 }
 
-// RoundTrip waits for the rate limiter, then attaches a valid bearer token
-// to a copy of req, acquiring or refreshing one when needed
+// RoundTrip sends req with a valid bearer token. A token the server rejects
+// before its expiry, as after a key rotation, is replaced and the request
+// sent once more; a second rejection is the answer.
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	err := t.limiter.Wait(req.Context())
-	if err != nil {
-		return nil, err
+	resp, token, err := t.send(req, req.Body, "")
+	if err != nil || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
 	}
 
-	// Load existing data if present
-	t.mtx.RLock()
-	token, expires := t.token, t.expires
-	t.mtx.RUnlock()
-
-	// Check their validity
-	if token == "" || time.Now().After(expires.Add(-5*time.Minute)) {
-		var err error
-		token, err = t.refreshToken(req.Context())
-		if err != nil {
-			return nil, &tokenError{err}
+	// A body already read cannot be sent again
+	body := req.Body
+	if body != nil && body != http.NoBody {
+		if req.GetBody == nil {
+			return resp, nil
 		}
+		body, err = req.GetBody()
+		if err != nil {
+			return resp, nil
+		}
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	_ = resp.Body.Close()
+
+	resp, _, err = t.send(req, body, token)
+	return resp, err
+}
+
+// send waits for the rate limiter and sends a copy of req carrying body and
+// a token other than rejected, returning the token it used
+func (t *authTransport) send(req *http.Request, body io.ReadCloser, rejected string) (*http.Response, string, error) {
+	err := t.limiter.Wait(req.Context())
+	if err != nil {
+		return nil, "", err
+	}
+
+	token, err := t.currentToken(req.Context(), rejected)
+	if err != nil {
+		return nil, "", &tokenError{err}
 	}
 
 	// RoundTrippers must not modify the original request
-	req = req.Clone(req.Context())
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	out := req.Clone(req.Context())
+	out.Body = body
+	out.Header.Set("Authorization", "Bearer "+token)
 
 	// Not strictly needed, but shield for an unset parent
 	rt := t.parent
 	if rt == nil {
 		rt = http.DefaultTransport
 	}
-	return rt.RoundTrip(req)
+	resp, err := rt.RoundTrip(out)
+	return resp, token, err
 }
 
 // BaseResponse is the envelope every endpoint wraps its payload in. Results

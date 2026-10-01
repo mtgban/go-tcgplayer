@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -1020,5 +1021,205 @@ func TestNilProductTypeFilterAsksForEverything(t *testing.T) {
 	}
 	if _, err := tcg.ListAllProducts(context.Background(), CategoryKeyForge, nil, false, 0); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// rejectedToken is how the API answers a bearer token it does not accept,
+// as read off the live API.
+const rejectedToken = `{"success":false,"errors":["Missing or invalid bearer token."],"results":[]}`
+
+// tokenSequence serves test-token-1, test-token-2 and so on, one per fetch,
+// and reports how many it has served.
+func tokenSequence(mux *http.ServeMux) *atomic.Int64 {
+	var served atomic.Int64
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		n := served.Add(1)
+		fmt.Fprintf(w, `{"access_token": "test-token-%d", "token_type": "bearer", "expires_in": 86400}`, n)
+	})
+	return &served
+}
+
+// TestRejectedTokenIsReplaced covers a token the server stops accepting before
+// its expiry, as after a key rotation: it is replaced, and the request goes
+// through, rather than failing every call until the token would have expired.
+func TestRejectedTokenIsReplaced(t *testing.T) {
+	var calls atomic.Int64
+	mux := http.NewServeMux()
+	tokens := tokenSequence(mux)
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.Header.Get("Authorization") == "Bearer test-token-1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, rejectedToken)
+			return
+		}
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
+		t.Fatalf("Get() error = %v, want the request to go through on a new token", err)
+	}
+	if got := tokens.Load(); got != 2 {
+		t.Errorf("token requested %d times, want 2", got)
+	}
+	// The new token is kept
+	if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := [2]int64{tokens.Load(), calls.Load()}, [2]int64{2, 3}; got != want {
+		t.Errorf("token fetches and API calls = %v, want %v", got, want)
+	}
+}
+
+// TestSecondRejectionIsTheAnswer keeps a server that rejects every token from
+// costing more than one retry.
+func TestSecondRejectionIsTheAnswer(t *testing.T) {
+	var calls atomic.Int64
+	mux := http.NewServeMux()
+	tokens := tokenSequence(mux)
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, rejectedToken)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	_, err := tcg.Get(context.Background(), CatalogProductsURL)
+	want := &APIError{StatusCode: http.StatusUnauthorized, Messages: []string{"Missing or invalid bearer token."}}
+	var got *APIError
+	if !errors.As(err, &got) || !reflect.DeepEqual(got, want) {
+		t.Fatalf("Get() error = %#v, want %#v", err, want)
+	}
+	if got, want := [2]int64{tokens.Load(), calls.Load()}, [2]int64{2, 2}; got != want {
+		t.Errorf("token fetches and API calls = %v, want %v", got, want)
+	}
+}
+
+// TestConcurrentRejectionsRefreshOnce keeps a burst of requests all rejected
+// with the same token from fetching one replacement each.
+func TestConcurrentRejectionsRefreshOnce(t *testing.T) {
+	mux := http.NewServeMux()
+	tokens := tokenSequence(mux)
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer test-token-1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, rejectedToken)
+			return
+		}
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Go(func() {
+			if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+
+	if got := tokens.Load(); got != 2 {
+		t.Errorf("token requested %d times, want 2", got)
+	}
+}
+
+// TestRejectedRequestBodyIsSentAgain covers the retry for a request with a
+// body: sent again when it can be rebuilt, and left alone when it cannot.
+func TestRejectedRequestBodyIsSentAgain(t *testing.T) {
+	var bodies []string
+	var mtx sync.Mutex
+	mux := http.NewServeMux()
+	tokenSequence(mux)
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		mtx.Lock()
+		bodies = append(bodies, string(data))
+		mtx.Unlock()
+		if r.Header.Get("Authorization") == "Bearer test-token-1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, rejectedToken)
+			return
+		}
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+	transport := tcg.client.HTTPClient.Transport
+
+	// strings.Reader gives the request a GetBody to rebuild it with
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, CatalogProductsURL, strings.NewReader("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || !reflect.DeepEqual(bodies, []string{"payload", "payload"}) {
+		t.Errorf("RoundTrip() = %d with bodies %q, want 200 with the body sent twice", resp.StatusCode, bodies)
+	}
+
+	// A body with no way to rebuild it gets the rejection back untouched,
+	// once test-token-2 is rejected too
+	var groupCalls atomic.Int64
+	mux.HandleFunc("/catalog/groups", func(w http.ResponseWriter, r *http.Request) {
+		groupCalls.Add(1)
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, rejectedToken)
+	})
+	req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, CatalogGroupsURL, io.NopCloser(strings.NewReader("payload")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = transport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized || groupCalls.Load() != 1 {
+		t.Errorf("RoundTrip() without GetBody = %d after %d calls, want the 401 back after 1", resp.StatusCode, groupCalls.Load())
+	}
+}
+
+// TestLateRejectionReusesTheReplacement covers a request rejected with the
+// old token that reaches the fetch only after another request has replaced
+// it: the replacement is the answer, not a third token.
+func TestLateRejectionReusesTheReplacement(t *testing.T) {
+	mux := http.NewServeMux()
+	tokens := tokenSequence(mux)
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer test-token-1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, rejectedToken)
+			return
+		}
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+	if _, err := tcg.Get(context.Background(), CatalogProductsURL); err != nil {
+		t.Fatal(err)
+	}
+
+	transport, ok := tcg.client.HTTPClient.Transport.(*authTransport)
+	if !ok {
+		t.Fatalf("transport is %T, want *authTransport", tcg.client.HTTPClient.Transport)
+	}
+	token, err := transport.refreshToken(context.Background(), "test-token-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "test-token-2" || tokens.Load() != 2 {
+		t.Errorf("refreshToken() after a replacement = %q with %d fetches, want %q with 2", token, tokens.Load(), "test-token-2")
 	}
 }

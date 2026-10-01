@@ -91,7 +91,13 @@ Three things happen to every request, in `authTransport.RoundTrip`:
    through a `singleflight`; the token endpoint has its own retryable client
    so that the one request everything depends on is not the only one without
    retries.
-3. **A clone of the request.** `RoundTripper` implementations must not
+3. **One retry on a rejected token.** A token lives about 14 days, and the
+   server can stop accepting it sooner, as after a key rotation: the live API
+   then answers 401 with "Missing or invalid bearer token." The transport
+   drops that token, only if it is still the one held, fetches another and
+   sends the request once more. A second 401 is the answer. Without this,
+   every call fails until the old token would have expired.
+4. **A clone of the request.** `RoundTripper` implementations must not
    modify the request they are given, so the `Authorization` header goes on
    a copy.
 
