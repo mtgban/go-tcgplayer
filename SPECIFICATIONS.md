@@ -68,7 +68,10 @@ Every request passes through `authTransport.RoundTrip`, which:
 Concurrent refreshes collapse onto a single fetch via
 `golang.org/x/sync/singleflight`, keyed `oauth_token`. The fetch re-checks the
 held token first, so requests rejected together, or one arriving just after
-the replacement landed, cost one fetch between them. The token request uses its own `retryablehttp.Client` so it is retried
+the replacement landed, cost one fetch between them. It runs on
+`context.WithoutCancel` and each caller waits on `DoChan`, so a caller that
+gives up returns at once without failing the fetch the others are waiting
+on. The token request uses its own `retryablehttp.Client` so it is retried
 like any other call.
 
 ### 2.3 Failure handling

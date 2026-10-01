@@ -1129,6 +1129,63 @@ func TestConcurrentRejectionsRefreshOnce(t *testing.T) {
 	}
 }
 
+// TestCancelledCallerDoesNotFailOthers covers the token fetch every waiting
+// request shares: the caller that started it giving up must not take the
+// others down with it, and must itself stop waiting.
+func TestCancelledCallerDoesNotFailOthers(t *testing.T) {
+	var tokens atomic.Int64
+	arrived, release := make(chan struct{}), make(chan struct{})
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if tokens.Add(1) == 1 {
+			close(arrived)
+		}
+		<-release
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		writeEnvelope(w, 0, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+	var once sync.Once
+	t.Cleanup(func() { once.Do(func() { close(release) }) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	first := make(chan error, 1)
+	go func() {
+		_, err := tcg.Get(ctx, CatalogProductsURL)
+		first <- err
+	}()
+	<-arrived
+
+	second := make(chan error, 1)
+	go func() {
+		_, err := tcg.Get(context.Background(), CatalogProductsURL)
+		second <- err
+	}()
+	// Give the second request time to join the fetch already in flight
+	time.Sleep(100 * time.Millisecond)
+
+	cancel()
+	select {
+	case err := <-first:
+		if err == nil {
+			t.Error("cancelled Get() error = nil, want its cancellation")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelled Get() still waiting on the token fetch")
+	}
+
+	once.Do(func() { close(release) })
+	if err := <-second; err != nil {
+		t.Errorf("Get() sharing the fetch error = %v, want nil", err)
+	}
+	if got := tokens.Load(); got != 1 {
+		t.Errorf("token requested %d times, want 1", got)
+	}
+}
+
 // TestRejectedRequestBodyIsSentAgain covers the retry for a request with a
 // body: sent again when it can be rebuilt, and left alone when it cannot.
 func TestRejectedRequestBodyIsSentAgain(t *testing.T) {
