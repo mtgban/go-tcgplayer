@@ -980,6 +980,11 @@ type Category struct {
 	ConditionGuideURL string `json:"conditionGuideUrl"`
 	IsScannable       bool   `json:"isScannable"`
 	Popularity        int    `json:"popularity"`
+	IsDirect          bool   `json:"isDirect"`
+
+	// The storefront's own copy for the category's page
+	CategoryDescription string `json:"categoryDescription"`
+	CategoryPageTitle   string `json:"categoryPageTitle"`
 }
 
 // GetCategoriesDetails returns the details of the given categories, at most
@@ -1023,6 +1028,7 @@ type ProductPriceSet struct {
 	LowPrice       float64 `json:"lowPrice"`
 	MarketPrice    float64 `json:"marketPrice"`
 	MidPrice       float64 `json:"midPrice"`
+	HighPrice      float64 `json:"highPrice"`
 	DirectLowPrice float64 `json:"directLowPrice"`
 	SubTypeName    string  `json:"subTypeName"`
 }
