@@ -249,8 +249,9 @@ product, presale or not: `IsPresale` marks one whose details may still
 change before release, and `ReleasedOn` is also set for some products long
 released (1,727 of Lorcana's 3,663 on 2026-10-01, 14 of them presale).
 `ProductType` is **never returned by the API** — `tcgdumper` stamps the type
-it fetched the product by. `Product.Extended(name)` reads one
-`extendedData` entry, which is where the catalog files a card's collector
+it fetched the product by. `ExtendedData` is a list of `ExtendedField`
+(`Name`, `DisplayName`, `Value`), and `Product.Extended(name)` reads one
+`extendedData` entry by `Name`, which is where the catalog files a card's collector
 number (`Number`) and rarity (`Rarity`).
 
 `SKU` is one sellable variant: `SKUID`, `ProductID`, `LanguageID`,

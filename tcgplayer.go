@@ -780,11 +780,16 @@ type Product struct {
 	// Only available for catalog API calls
 	Skus []SKU `json:"skus,omitempty"`
 	// Only available for catalog API calls
-	ExtendedData []struct {
-		Name        string `json:"name"`
-		DisplayName string `json:"displayName"`
-		Value       string `json:"value"`
-	} `json:"extendedData,omitempty"`
+	ExtendedData []ExtendedField `json:"extendedData,omitempty"`
+}
+
+// ExtendedField is one extendedData entry, a key the catalog files under a
+// product, such as Number or Rarity. Name is the key Product.Extended looks
+// up; DisplayName is the storefront's label for it.
+type ExtendedField struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Value       string `json:"value"`
 }
 
 // PresaleInfo is a product's release status. ReleasedOn is set for presale
