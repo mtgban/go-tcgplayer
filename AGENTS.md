@@ -141,6 +141,11 @@ weeks later they held 264 and 422 products.
 
 ## Conventions
 
+- **Models mirror the response.** Every key the API sends is decoded,
+  under the API's own name, whether or not a consumer reads it yet. Before
+  changing a model, fetch one raw record and print every key at every level,
+  then diff that against the struct: printing the fields the struct already
+  decodes shows what is decoded, not what is sent.
 - **Doc comments on every exported name**, opening with the name. `revive`'s
   `exported` and `package-comments` rules enforce it.
 - **Initialisms are initialisms**: `ID`, `URL`, `API`, `SKU`, `DB`. Not
