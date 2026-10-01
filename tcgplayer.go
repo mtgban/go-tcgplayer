@@ -944,7 +944,7 @@ type Group struct {
 	GroupID      int    `json:"groupId"`
 	Name         string `json:"name"`
 	Abbreviation string `json:"abbreviation"`
-	Supplemental bool   `json:"supplemental"`
+	Supplemental bool   `json:"isSupplemental"`
 	PublishedOn  string `json:"publishedOn"`
 	ModifiedOn   string `json:"modifiedOn"`
 	CategoryID   int    `json:"categoryId"`

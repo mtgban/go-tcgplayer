@@ -738,7 +738,7 @@ func TestListAllCategoryGroups(t *testing.T) {
 		}
 		writeEnvelope(w, 101, `[{
 			"groupId": 10, "name": "Legend of Blue Eyes White Dragon", "abbreviation": "LOB",
-			"supplemental": true, "publishedOn": "2002-03-08T00:00:00",
+			"isSupplemental": true, "publishedOn": "2002-03-08T00:00:00",
 			"modifiedOn": "2026-01-04T00:00:00", "categoryId": 2
 		}]`)
 	})

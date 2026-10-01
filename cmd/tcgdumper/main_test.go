@@ -28,7 +28,7 @@ const (
 	languagesJSON  = `[{"languageId": 1, "name": "English", "abbr": "EN"}]`
 	printingsJSON  = `[{"printingId": 2, "name": "Foil", "displayOrder": 5, "modifiedOn": "2026-01-02T00:00:00"}]`
 	raritiesJSON   = `[{"rarityId": 6, "displayText": "Rare", "dbValue": "R"}]`
-	groupJSON      = `{"groupId": 10, "name": "Set One", "abbreviation": "SO", "supplemental": true,
+	groupJSON      = `{"groupId": 10, "name": "Set One", "abbreviation": "SO", "isSupplemental": true,
 		"publishedOn": "2026-01-03T00:00:00", "modifiedOn": "2026-01-04T00:00:00", "categoryId": 1}`
 )
 
