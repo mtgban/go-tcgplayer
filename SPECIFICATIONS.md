@@ -264,6 +264,19 @@ is why the dump carries them.
 `Group` is a set or expansion. `Group.ReleaseDate()` returns `PublishedOn`
 without its time of day.
 
+Every model decodes each key the API sends for it, under the API's own
+name, whether or not anything reads it yet: the dump is these types
+re-encoded, so a key left out of a type is a key no reader of the dump can
+have.
+
+`ProductPriceSet` and `SKUPriceSet` hold prices as `float64`, and the API
+sends `null` for a price it does not have, which decodes as 0. No price is
+ever a real 0, so 0 means none: across 500 product and 250 sku price rows
+on 2026-10-01 every value was positive or null. `LowestShipping` is the
+exception. It is 0 both for free shipping and, decoded from `null`, for a
+sku with no listing (2 and 197 of those 250); `LowestListingPrice` is 0
+only for the latter, which tells the two apart.
+
 ---
 
 ## 7. The catalog dump
