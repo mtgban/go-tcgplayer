@@ -173,9 +173,7 @@ weeks later they held 264 and 422 products.
   a dump contains is *not* proof the product existed when the dump ran — 99
   Magic products looked like misses on that reasoning and every one turned
   out to carry a `releasedOn` after the dump. Check `presaleInfo.releasedOn`
-  and `modifiedOn`, not id order. `presaleInfo` is on the API's product
-  record and on tcgcsv.com; `Product` does not decode it, so the dump does
-  not carry it.
+  and `modifiedOn`, not id order; the dump carries both.
 - **An empty result set arrives as a 404.** `queryTotal` reads a not-found
   with an empty envelope as zero, because for a count that is the answer and
   not a failure.

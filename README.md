@@ -152,7 +152,7 @@ Flags:
 
 ### Reading a dump
 
-Decode it into `tcgplayer.CatalogDump`. Every product carries `productType`, the type it was fetched by, which `SinglesProductTypes` and `SealedProductTypes` classify. `Product.Extended(name)` reads an extended data entry such as `Number` or `Rarity`, `Group.ReleaseDate()` gives the publish date without the time of day, and `CatalogDump.PrintingNames()` maps each product to the printings its skus are sold in. [SPECIFICATIONS.md](SPECIFICATIONS.md) sets out the format and what a reader may rely on.
+Decode it into `tcgplayer.CatalogDump`. Every product carries `productType`, the type it was fetched by, which `SinglesProductTypes` and `SealedProductTypes` classify. `Product.PresaleInfo.IsPresale` marks a product not yet released, whose name and rarity may still change. `Product.Extended(name)` reads an extended data entry such as `Number` or `Rarity`, `Group.ReleaseDate()` gives the publish date without the time of day, and `CatalogDump.PrintingNames()` maps each product to the printings its skus are sold in. [SPECIFICATIONS.md](SPECIFICATIONS.md) sets out the format and what a reader may rely on.
 
 ---
 

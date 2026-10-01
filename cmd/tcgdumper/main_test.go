@@ -36,8 +36,10 @@ const (
 // and extended data only when the request asks for them.
 func productJSON(id int, skus, extended bool) string {
 	fields := []string{fmt.Sprintf(`"productId": %d, "name": "Card %d", "cleanName": "Card %d Clean", `+
-		`"imageUrl": "https://example.com/%d.jpg", "groupId": 10, "url": "https://example.com/product/%d", `+
-		`"modifiedOn": "2026-01-05T00:00:00"`, id, id, id, id, id)}
+		`"imageUrl": "https://example.com/%d.jpg", "groupId": 10, "categoryId": 1, "url": "https://example.com/product/%d", `+
+		`"modifiedOn": "2026-01-05T00:00:00", "imageCount": 2, `+
+		`"presaleInfo": {"isPresale": true, "releasedOn": "2026-10-23T00:00:00", "note": "Presale %d"}`,
+		id, id, id, id, id, id)}
 	if extended {
 		fields = append(fields, fmt.Sprintf(
 			`"extendedData": [{"name": "Number", "displayName": "Card Number", "value": "%03d"}]`, id))

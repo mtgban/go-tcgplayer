@@ -242,7 +242,11 @@ result set as not-found, and for a count that is the answer.
 ### 6.2 Models
 
 `Product` carries `ProductID`, `Name`, `CleanName`, `ImageURL`, `GroupID`,
-`URL`, `ModifiedOn`, and optionally `Skus` and `ExtendedData`.
+`CategoryID`, `URL`, `ModifiedOn`, `ImageCount`, `PresaleInfo`, and
+optionally `Skus` and `ExtendedData`. The API sends `presaleInfo` for every
+product, presale or not: `IsPresale` marks one whose details may still
+change before release, and `ReleasedOn` is also set for some products long
+released (1,727 of Lorcana's 3,663 on 2026-10-01, 14 of them presale).
 `ProductType` is **never returned by the API** — `tcgdumper` stamps the type
 it fetched the product by. `Product.Extended(name)` reads one
 `extendedData` entry, which is where the catalog files a card's collector
@@ -345,8 +349,7 @@ failed dump leaves the previous good file in the bucket.
 - **An empty result set is a 404**, not a zero count (§6.1).
 - **Product ids are allocated before public release.** An id lower than a
   dump's highest does not mean the product existed when the dump ran; check
-  `presaleInfo.releasedOn` on the API's product record. `Product` does not
-  decode it, so the dump does not carry it.
+  `presaleInfo.releasedOn`, which the dump carries.
 - **`Rarity.DBValue` can carry stray whitespace**, where `DisplayText` does
   not. Yu-Gi-Oh's rarity 515 answers
   `{"displayText":"Prismatic Collector's Rare","dbValue":"Prismatic Collector's Rare "}`,
@@ -387,6 +390,8 @@ Readers may **not** rely on:
   products routinely have none.
 - `Number` being numeric. Over 8,000 Magic collector numbers are not.
 - The set of product types being stable — a category may gain one.
+- A product having `presaleInfo`. Dumps written before it was decoded carry
+  none, so a missing one means unknown, not "not presale".
 
 ---
 
