@@ -18,7 +18,7 @@ time, which is exactly where a silent shortfall hides.
 
 ## Proposal
 
-Go 1.23 range-over-func, which this module can use (`go 1.25.0`):
+Go 1.23 range-over-func, which this module can use (`go 1.26.0`):
 
 ```go
 func (tcg *Client) Products(ctx context.Context, category int, types []string, includeSkus bool) iter.Seq2[Product, error]

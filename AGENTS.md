@@ -66,7 +66,7 @@ see one endpoint's whole behaviour without following a call chain.
 gofmt -l .                                      # must print nothing
 go vet ./...
 go run github.com/mgechev/revive@v1.13.0 -set_exit_status -config .revive.toml ./...
-go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
 go build ./...
 go test -race ./...
 ```
@@ -171,13 +171,13 @@ weeks later they held 264 and 422 products.
   It is the only independent check on the catalog available without
   credentials, and it carries no product type field, which is why the type
   vocabulary had to be read from the search facets instead.
-- **staticcheck is pinned and the local toolchain may be ahead of it.**
-  `staticcheck@2025.1.1` cannot read the export data a Go 1.27 toolchain
-  writes and fails with "export data version 4 is greater than maximum
-  supported version 2" on every standard-library import. CI is unaffected —
-  `setup-go` reads `go-version-file: go.mod`, so it runs the 1.25 the module
-  declares. If the local run fails that way and nothing else does, check
-  `go version` before believing it.
+- **staticcheck can only read the Go releases it was built to read.** Run
+  under a newer Go than its release supports, it fails on every
+  standard-library import with "export data version N is greater than
+  maximum supported version". `2026.2.1` reads 1.26 and 1.27. CI follows
+  `go.mod` — `setup-go` reads `go-version-file` and runs its `toolchain`
+  line, go1.26.8 — so when a local run fails that way and nothing else does,
+  the pin needs a newer release; the code is fine.
 - **`gh run list --commit <short-sha>` silently returns nothing.** Use the
   full sha or query the workflow. A poll built on the short form waits
   forever for a run that already finished.
