@@ -955,6 +955,6 @@ func TestPrintingNames(t *testing.T) {
 		104: nil,
 	}
 	if got := dump.PrintingNames(); !reflect.DeepEqual(got, want) {
-		t.Errorf("PrintingNames() = %q, want %q", got, want)
+		t.Errorf("PrintingNames() = %v, want %v", got, want)
 	}
 }
