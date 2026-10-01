@@ -474,14 +474,16 @@ func (t *authTransport) currentToken(ctx context.Context, rejected string) (stri
 }
 
 func (t *authTransport) refreshToken(ctx context.Context, rejected string) (string, error) {
-	// Run this only once for concurrent requests
-	v, err, _ := t.sf.Do("oauth_token", func() (any, error) {
+	// One fetch serves every concurrent caller. It runs on no caller's
+	// cancellation, so one caller giving up does not fail the others; each
+	// caller still stops waiting when its own context ends.
+	ch := t.sf.DoChan("oauth_token", func() (any, error) {
 		// A fetch that finished while this caller queued may have left a
 		// token it can use
 		if token, ok := t.usable(rejected); ok {
 			return token, nil
 		}
-		tok, exp, err := t.requestToken(ctx)
+		tok, exp, err := t.requestToken(context.WithoutCancel(ctx))
 		if err != nil {
 			return nil, err
 		}
@@ -491,14 +493,19 @@ func (t *authTransport) refreshToken(ctx context.Context, rejected string) (stri
 		return tok, nil
 	})
 
-	if err != nil {
-		return "", err
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-ch:
+		if res.Err != nil {
+			return "", res.Err
+		}
+		token, ok := res.Val.(string)
+		if !ok {
+			return "", fmt.Errorf("token flight returned %T, not a string", res.Val)
+		}
+		return token, nil
 	}
-	token, ok := v.(string)
-	if !ok {
-		return "", fmt.Errorf("token flight returned %T, not a string", v)
-	}
-	return token, nil
 }
 
 // RoundTrip sends req with a valid bearer token. A token the server rejects

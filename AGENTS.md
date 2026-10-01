@@ -90,7 +90,9 @@ Three things happen to every request, in `authTransport.RoundTrip`:
    five minutes before expiry. Concurrent callers collapse onto one fetch
    through a `singleflight`; the token endpoint has its own retryable client
    so that the one request everything depends on is not the only one without
-   retries.
+   retries. The fetch runs on `context.WithoutCancel`, so the caller that
+   happened to start it cannot fail the others by giving up, and each caller
+   still stops waiting when its own context ends.
 3. **One retry on a rejected token.** A token lives about 14 days, and the
    server can stop accepting it sooner, as after a key rotation: the live API
    then answers 401 with "Missing or invalid bearer token." The transport
