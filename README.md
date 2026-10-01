@@ -134,7 +134,7 @@ Low-level `Get()` returns a `BaseResponse` envelope. High-level helpers decode `
 
 `tcgdumper` writes one category's whole catalog as a single JSON document, a `CatalogDump`: the category, its conditions, languages, printings and rarities, its groups, and every product with its skus. `catalog-dump.yml` runs it nightly and uploads each dump to B2, where datastore-gen, go-mtgban and mtgban-website read it.
 
-It exits non-zero rather than pass off a short dump. Before fetching it counts the category with no product type filter, and it fails when the category's product types do not account for that count, when a page fails, or when the products and groups it collected do not match the counts it opened with. The workflow uploads only on success, so a failed night leaves the previous dump in place.
+It exits non-zero rather than pass off a short dump. Before fetching it counts the category with no product type filter, and it fails when the category's product types do not account for that count, when a page fails or comes back the wrong size, when the products and groups it collected do not match the counts it opened with, or when a product or group repeats or a product names a group the dump does not hold. All of it is checked before anything is written, so a failed run leaves no output. The workflow uploads only on success, so a failed night leaves the previous dump in place.
 
 ```bash
 # Build

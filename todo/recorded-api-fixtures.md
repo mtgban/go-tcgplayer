@@ -9,15 +9,19 @@ writeEnvelope(w, len(wantConditions), `[
 ]`)
 ```
 
-That was a real fix. When fixtures were encoded from `[]Condition`, breaking
-`json:"abbreviation"` to `json:"WRONG"` failed nothing — the value round
-tripped through the same wrong tag it was written with. Nine mutations are
-caught now, including the `expires_in` unit bug.
+Every model is decoded from such a fixture with each field set to a
+distinct value, and the dump test compares its output with a document built
+from the stub's wire json. Renaming any tag but `BaseResponse.Success`,
+which nothing reads, fails a test.
 
 **The remaining gap:** those strings are hand-written from the API
 documentation. They encode one reading of the docs, not what the platform
 sends. A field transcribed wrongly would be agreed with by both the fixture
 and the struct, and the suite would stay green.
+
+A recording would also show what the structs leave out. tcgcsv.com's copy of
+the product listing carries `categoryId`, `imageCount` and `presaleInfo`
+(`isPresale`, `releasedOn`, `note`), and `Product` decodes none of them.
 
 ## Proposal
 

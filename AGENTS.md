@@ -35,7 +35,8 @@ Both were found by counting, not by reading. So:
   refuses to write when the per-type totals do not add up to it. It also
   checks the groups and products it collected against the counts it opened
   with, because a page that answers short without erroring is a silent loss
-  the failed-page tally never sees.
+  the failed-page tally never sees, and by identity, because a duplicate can
+  stand in for the product it pushed out.
 - **A guard that cannot fail is decoration.** Every guard in this repo has
   been mutation-tested: break the thing it protects and watch it go red. Do
   the same for any guard you add, and say in the PR what you broke.
@@ -46,11 +47,13 @@ Both were found by counting, not by reading. So:
 tcgplayer.go            the whole client: auth transport, the envelope, the
                         endpoint wrappers, the category and product type
                         tables, and the dump format types
-tcgplayer_test.go       the client's tests, all against httptest
+tcgplayer_test.go       the client's tests: endpoints against httptest,
+                        and the dump helpers
 cmd/tcgdumper/          the dump program and its end-to-end tests
 .revive.toml            the lint rules, shared with go-mtgban
 .github/workflows/ci.yml            gofmt, vet, revive, staticcheck, build, test
 .github/workflows/catalog-dump.yml  the nightly dump and its B2 upload
+.github/dependabot.yml              weekly action and Go module updates
 ```
 
 One file holds the library on purpose. It is ~1,100 lines, most of it two
@@ -162,7 +165,9 @@ weeks later they held 264 and 422 products.
   a dump contains is *not* proof the product existed when the dump ran — 99
   Magic products looked like misses on that reasoning and every one turned
   out to carry a `releasedOn` after the dump. Check `presaleInfo.releasedOn`
-  and `modifiedOn`, not id order.
+  and `modifiedOn`, not id order. `presaleInfo` is on the API's product
+  record and on tcgcsv.com; `Product` does not decode it, so the dump does
+  not carry it.
 - **An empty result set arrives as a 404.** `queryTotal` reads a not-found
   with an empty envelope as zero, because for a count that is the answer and
   not a failure.
