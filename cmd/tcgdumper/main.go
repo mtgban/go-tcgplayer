@@ -205,7 +205,7 @@ func run() int {
 	output.Products = products
 	output.Groups = groups
 
-	if err := validateCatalog(groups, products, totalgroups, totalProducts, failedPages.Load()); err != nil {
+	if err := validateCatalog(groups, products, totalgroups, totalProducts, categoryTotal, failedPages.Load()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -223,10 +223,10 @@ func run() int {
 	return 0
 }
 
-// validateCatalog checks that everything counted up front came back, before
-// any JSON is written. A page that answered short without an error is a loss
-// the failed-page tally never sees, so the counts are checked either way.
-func validateCatalog(groups []tcgplayer.Group, products []tcgplayer.Product, totalGroups, totalProducts int, failedPages int64) error {
+// validateCatalog checks identities as well as counts before any JSON is written.
+// Counts are a snapshot, so a catalog changing during pagination can still
+// require a retry; they cannot establish an atomic view of the remote catalog.
+func validateCatalog(groups []tcgplayer.Group, products []tcgplayer.Product, totalGroups, totalProducts, categoryTotal int, failedPages int64) error {
 	if failedPages != 0 {
 		return fmt.Errorf("%d pages failed to download", failedPages)
 	}
@@ -235,6 +235,33 @@ func validateCatalog(groups []tcgplayer.Group, products []tcgplayer.Product, tot
 	}
 	if len(products) != totalProducts {
 		return fmt.Errorf("expected %d products but collected %d", totalProducts, len(products))
+	}
+	groupIDs := make(map[int]bool, len(groups))
+	for _, group := range groups {
+		if groupIDs[group.GroupID] {
+			return fmt.Errorf("duplicate group %d", group.GroupID)
+		}
+		groupIDs[group.GroupID] = true
+	}
+	productIDs := make(map[int]bool, len(products))
+	type membership struct {
+		id          int
+		productType string
+	}
+	memberships := make(map[membership]bool, len(products))
+	for _, product := range products {
+		key := membership{product.ProductID, product.ProductType}
+		if memberships[key] {
+			return fmt.Errorf("duplicate product %d within type %q", product.ProductID, product.ProductType)
+		}
+		memberships[key] = true
+		productIDs[product.ProductID] = true
+		if !groupIDs[product.GroupID] {
+			return fmt.Errorf("product %d references missing group %d", product.ProductID, product.GroupID)
+		}
+	}
+	if len(productIDs) != categoryTotal {
+		return fmt.Errorf("expected %d unique products but collected %d", categoryTotal, len(productIDs))
 	}
 	return nil
 }

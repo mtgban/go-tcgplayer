@@ -334,3 +334,40 @@ func TestMultiPageProductIdentities(t *testing.T) {
 		}
 	}
 }
+
+func TestDuplicateProductMasksMissingProduct(t *testing.T) {
+	serveCatalog(t, map[string][]int{"Cards": {1, 1, 3}}, 3, 0)
+	code, logged := runDumper(t)
+	if code == 0 || !strings.Contains(logged, "duplicate product") {
+		t.Fatalf("exit %d: %s", code, logged)
+	}
+}
+
+func TestOverlappingTypes(t *testing.T) {
+	for _, total := range []int{3, 4} {
+		t.Run(strconv.Itoa(total), func(t *testing.T) {
+			serveCatalog(t, map[string][]int{"Cards": {1, 2}, "Sealed Products": {2, 3}}, total, 0)
+			code, logged := runDumper(t)
+			if (code == 0) != (total == 3) {
+				t.Fatalf("exit %d: %s", code, logged)
+			}
+		})
+	}
+}
+
+func TestGroupIntegrity(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		groups   []tcgplayer.Group
+		products []tcgplayer.Product
+	}{
+		{"duplicate", []tcgplayer.Group{{GroupID: 1}, {GroupID: 1}}, nil},
+		{"missing", []tcgplayer.Group{{GroupID: 1}}, []tcgplayer.Product{{ProductID: 1, GroupID: 2}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateCatalog(tt.groups, tt.products, len(tt.groups), len(tt.products), len(tt.products), 0); err == nil {
+				t.Fatal("accepted invalid groups")
+			}
+		})
+	}
+}
