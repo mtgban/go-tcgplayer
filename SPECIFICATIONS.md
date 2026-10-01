@@ -216,7 +216,8 @@ Three access shapes, with different rules:
 
 | Shape | Endpoints | Rule |
 | --- | --- | --- |
-| **Paged** | `ListAllProducts`, `ListAllCategoryGroups` | `offset` + `limit`, `limit` = `MaxItemsInResponse` (**100**). Pair with the matching `Total*` call to walk the whole set. |
+| **Paged** | `ListAllProducts`, `ListAllCategoryGroups` | `offset` + `limit`, `limit` = `MaxItemsInResponse` (**100**). One page per call. |
+| **Walked** | `Products`, `Groups` | An `iter.Seq2` over a whole paged listing: counts with the matching `Total*` call, then pages, and ends with an error on a page holding other than its share of the count or on a repeated id. Sequential, and an error ends the walk. |
 | **Batched by id** | `GetProductsDetails`, `GetCategoriesDetails`, `GetMarketPricesByProducts`, `GetMarketPricesBySKUs` | At most `MaxIDsInRequest` (**250**) ids, rejected early. An empty list is also rejected: it would otherwise request the bare endpoint and return an opaque API error. |
 | **Single call** | `ListCategoryPrintings`, `ListCategoryConditions`, `ListCategoryLanguages`, `ListCategoryRarities`, `ListProductSKUs` | No paging and no count: the API returns the whole list (§3.1). |
 
