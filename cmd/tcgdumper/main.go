@@ -201,38 +201,38 @@ func run() int {
 	output.Products = products
 	output.Groups = groups
 
+	if err := validateCatalog(groups, products, totalgroups, totalProducts, failedPages.Load()); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	if prettyOpt {
 		enc.SetIndent("", "  ")
 	}
-	err = enc.Encode(output)
-	if err != nil {
+	if err := enc.Encode(output); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "Dumped", len(products), "products and", len(groups), "groups")
 
-	// Everything counted up front has to come back, whether or not a page
-	// reported an error: a page that simply answered short is a silent loss
-	incomplete := false
-	if failed := failedPages.Load(); failed > 0 {
-		fmt.Fprintln(os.Stderr, failed, "pages failed to download")
-		incomplete = true
+	return 0
+}
+
+// validateCatalog checks that everything counted up front came back, before
+// any JSON is written. A page that answered short without an error is a loss
+// the failed-page tally never sees, so the counts are checked either way.
+func validateCatalog(groups []tcgplayer.Group, products []tcgplayer.Product, totalGroups, totalProducts int, failedPages int64) error {
+	if failedPages != 0 {
+		return fmt.Errorf("%d pages failed to download", failedPages)
 	}
-	if len(groups) != totalgroups {
-		fmt.Fprintln(os.Stderr, "expected", totalgroups, "groups but collected", len(groups))
-		incomplete = true
+	if len(groups) != totalGroups {
+		return fmt.Errorf("expected %d groups but collected %d", totalGroups, len(groups))
 	}
 	if len(products) != totalProducts {
-		fmt.Fprintln(os.Stderr, "expected", totalProducts, "products but collected", len(products))
-		incomplete = true
+		return fmt.Errorf("expected %d products but collected %d", totalProducts, len(products))
 	}
-	if incomplete {
-		fmt.Fprintln(os.Stderr, "output is incomplete")
-		return 1
-	}
-
-	return 0
+	return nil
 }
 
 func main() {

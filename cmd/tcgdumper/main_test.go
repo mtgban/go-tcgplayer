@@ -166,6 +166,9 @@ func runDumperOutput(t *testing.T, args ...string) (int, string, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if code != 0 && len(dump) != 0 {
+		t.Error("failed dump wrote JSON")
+	}
 	return code, string(logged), dump
 }
 
