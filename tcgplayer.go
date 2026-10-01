@@ -316,9 +316,10 @@ func isSinglesType(productType string) bool {
 
 // SinglesProductTypes returns the product types the given category files
 // single cards under. It is empty for the categories that sell none, such
-// as supplies and storage.
+// as supplies and storage, and never nil: nil asks ListAllProducts and
+// TotalProducts for every product, which is not what "no singles" means.
 func SinglesProductTypes(category int) []string {
-	var out []string
+	out := []string{}
 	for _, productType := range ProductTypes(category) {
 		if isSinglesType(productType) {
 			out = append(out, productType)
@@ -328,9 +329,10 @@ func SinglesProductTypes(category int) []string {
 }
 
 // SealedProductTypes returns the product types the given category files
-// everything other than single cards under, sealed products above all.
+// everything other than single cards under, sealed products above all. It is
+// empty, never nil, for a category that sells only singles, such as Epic.
 func SealedProductTypes(category int) []string {
-	var out []string
+	out := []string{}
 	for _, productType := range ProductTypes(category) {
 		if !isSinglesType(productType) {
 			out = append(out, productType)
@@ -570,9 +572,13 @@ func (tcg *Client) Get(ctx context.Context, link string) (*BaseResponse, error) 
 	return &response, nil
 }
 
-// TotalProducts reports how many products a category holds, optionally
-// narrowed to the given product types
+// TotalProducts reports how many products a category holds, narrowed to the
+// given product types. A nil list counts every product; an empty one is an
+// error, since it names nothing to count.
 func (tcg *Client) TotalProducts(ctx context.Context, category int, productTypes []string) (int, error) {
+	if err := checkProductTypes(productTypes); err != nil {
+		return 0, err
+	}
 	return tcg.queryTotal(ctx, CatalogProductsURL, category, productTypes)
 }
 
@@ -613,6 +619,18 @@ func (tcg *Client) queryTotal(ctx context.Context, link string, category int, pr
 		return 0, err
 	}
 	return response.TotalItems, nil
+}
+
+// errNoProductTypes is a product type filter naming no types. The API reads
+// a missing filter as every product, so a caller with nothing to ask for
+// would otherwise be handed the whole category.
+var errNoProductTypes = errors.New("empty product type filter: pass nil to ask for every product")
+
+func checkProductTypes(productTypes []string) error {
+	if productTypes != nil && len(productTypes) == 0 {
+		return errNoProductTypes
+	}
+	return nil
 }
 
 // checkComplete reports a listing that answered with fewer items than it
@@ -799,9 +817,13 @@ func (tcg *Client) GetProductsDetails(ctx context.Context, productIDs []int, inc
 }
 
 // ListAllProducts returns one page of a category's products, starting at
-// offset and holding at most MaxItemsInResponse of them. Pair it with
-// TotalProducts to walk a whole category.
+// offset and holding at most MaxItemsInResponse of them, narrowed to the given
+// product types. A nil list asks for every product; an empty one is an error.
+// Pair it with TotalProducts to walk a whole category.
 func (tcg *Client) ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error) {
+	if err := checkProductTypes(productTypes); err != nil {
+		return nil, err
+	}
 	u, err := url.Parse(CatalogProductsURL)
 	if err != nil {
 		return nil, err

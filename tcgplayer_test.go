@@ -3,6 +3,7 @@ package tcgplayer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -956,5 +957,68 @@ func TestPrintingNames(t *testing.T) {
 	}
 	if got := dump.PrintingNames(); !reflect.DeepEqual(got, want) {
 		t.Errorf("PrintingNames() = %v, want %v", got, want)
+	}
+}
+
+// TestProductTypesForNoneAreEmpty covers the categories with nothing of one
+// kind: their list must be empty rather than nil, since nil asks the product
+// endpoints for every product.
+func TestProductTypesForNoneAreEmpty(t *testing.T) {
+	if got := SinglesProductTypes(CategoryKeyForge); got == nil || len(got) != 0 {
+		t.Errorf("SinglesProductTypes(keyforge) = %#v, want an empty, non-nil list", got)
+	}
+	if got := SealedProductTypes(CategoryEpic); got == nil || len(got) != 0 {
+		t.Errorf("SealedProductTypes(epic) = %#v, want an empty, non-nil list", got)
+	}
+	for id := range ProductTypesByCategory {
+		if SinglesProductTypes(id) == nil {
+			t.Errorf("SinglesProductTypes(%d) = nil, want a non-nil list", id)
+		}
+		if SealedProductTypes(id) == nil {
+			t.Errorf("SealedProductTypes(%d) = nil, want a non-nil list", id)
+		}
+	}
+}
+
+func TestEmptyProductTypeFilterIsRefused(t *testing.T) {
+	// No request should be issued, the handler always fails
+	tcg := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request to %s", r.URL)
+	}))
+
+	ctx := context.Background()
+	if _, err := tcg.TotalProducts(ctx, CategoryKeyForge, SinglesProductTypes(CategoryKeyForge)); !errors.Is(err, errNoProductTypes) {
+		t.Errorf("TotalProducts() with no types error = %v, want %v", err, errNoProductTypes)
+	}
+	if _, err := tcg.ListAllProducts(ctx, CategoryEpic, SealedProductTypes(CategoryEpic), false, 0); !errors.Is(err, errNoProductTypes) {
+		t.Errorf("ListAllProducts() with no types error = %v, want %v", err, errNoProductTypes)
+	}
+}
+
+// TestNilProductTypeFilterAsksForEverything keeps nil meaning no filter, the
+// count the dumper checks every category against.
+func TestNilProductTypeFilterAsksForEverything(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("productTypes") {
+			t.Errorf("productTypes = %q, want no filter", r.URL.Query().Get("productTypes"))
+		}
+		writeEnvelope(w, 4321, `[]`)
+	})
+
+	tcg := newTestClient(t, mux)
+
+	total, err := tcg.TotalProducts(context.Background(), CategoryKeyForge, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 4321 {
+		t.Errorf("TotalProducts() = %d, want 4321", total)
+	}
+	if _, err := tcg.ListAllProducts(context.Background(), CategoryKeyForge, nil, false, 0); err != nil {
+		t.Fatal(err)
 	}
 }
