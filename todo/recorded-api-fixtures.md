@@ -52,7 +52,7 @@ one command and the capture path is reviewable.
 - **Trim to a few entries.** A Magic product page is large; two or three
   products carry the same shape.
 - **Keep one hand-written fixture per edge case.** The 404-with-empty-envelope
-  and short-listing cases are constructed situations a recording will not
+  and short-page cases are constructed situations a recording will not
   contain, and they guard real behaviour.
 - **A recording pins a moment.** If TCGplayer changes a payload the suite
   keeps passing against the old one; the live dump is what notices. This
