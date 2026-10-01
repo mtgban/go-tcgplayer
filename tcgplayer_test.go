@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"maps"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -78,7 +78,7 @@ func writeEnvelope(w http.ResponseWriter, totalItems int, results string) {
 func TestProductTypesPerCategory(t *testing.T) {
 	// A category naming its types for itself, where asking for "Cards"
 	// would match nothing at all
-	if got := SinglesProductTypes(CategoryDragonBallSuper); !reflect.DeepEqual(got, []string{"Dragon Ball Super Singles"}) {
+	if got := SinglesProductTypes(CategoryDragonBallSuper); !slices.Equal(got, []string{"Dragon Ball Super Singles"}) {
 		t.Errorf("SinglesProductTypes(dragon ball super) = %q, want [Dragon Ball Super Singles]", got)
 	}
 	// The types Magic's list does not name, and used to lose
@@ -101,7 +101,7 @@ func TestProductTypesPerCategory(t *testing.T) {
 	// An unlisted category falls back to every known name, which a caller
 	// counting its results will find comes up short rather than silently
 	// dumping nothing
-	if got := ProductTypes(-1); !reflect.DeepEqual(got, allProductTypes) {
+	if got := ProductTypes(-1); !slices.Equal(got, allProductTypes) {
 		t.Errorf("ProductTypes(unlisted) = %q, want every known type", got)
 	}
 }
@@ -309,7 +309,7 @@ func TestGetProductsDetails(t *testing.T) {
 		{ProductID: 12, Name: "Foo"},
 		{ProductID: 34, Name: "Bar"},
 	}
-	if !reflect.DeepEqual(products, want) {
+	if !slices.EqualFunc(products, want, productEqual) {
 		t.Errorf("GetProductsDetails() = %+v, want %+v", products, want)
 	}
 }
@@ -418,7 +418,7 @@ func TestListCategoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(conditions, wantConditions) {
+	if !slices.Equal(conditions, wantConditions) {
 		t.Errorf("ListCategoryConditions() = %+v, want %+v", conditions, wantConditions)
 	}
 
@@ -426,7 +426,7 @@ func TestListCategoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(languages, wantLanguages) {
+	if !slices.Equal(languages, wantLanguages) {
 		t.Errorf("ListCategoryLanguages() = %+v, want %+v", languages, wantLanguages)
 	}
 
@@ -434,7 +434,7 @@ func TestListCategoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(rarities, wantRarities) {
+	if !slices.Equal(rarities, wantRarities) {
 		t.Errorf("ListCategoryRarities() = %+v, want %+v", rarities, wantRarities)
 	}
 }
@@ -670,7 +670,7 @@ func TestListAllProducts(t *testing.T) {
 			{Name: "Rarity", DisplayName: "Rarity", Value: "Ultra Rare"},
 		},
 	}}
-	if !reflect.DeepEqual(products, want) {
+	if !slices.EqualFunc(products, want, productEqual) {
 		t.Errorf("ListAllProducts() = %+v, want %+v", products, want)
 	}
 }
@@ -697,7 +697,7 @@ func TestListProductSKUs(t *testing.T) {
 		{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3},
 		{SKUID: 1011, ProductID: 101, LanguageID: 4, PrintingID: 5, ConditionID: 6},
 	}
-	if !reflect.DeepEqual(skus, want) {
+	if !slices.Equal(skus, want) {
 		t.Errorf("ListProductSKUs() = %+v, want %+v", skus, want)
 	}
 }
@@ -736,7 +736,7 @@ func TestListAllCategoryGroups(t *testing.T) {
 		ModifiedOn:   "2026-01-04T00:00:00",
 		CategoryID:   2,
 	}}
-	if !reflect.DeepEqual(groups, want) {
+	if !slices.Equal(groups, want) {
 		t.Errorf("ListAllCategoryGroups() = %+v, want %+v", groups, want)
 	}
 }
@@ -778,7 +778,7 @@ func TestGetCategoriesDetails(t *testing.T) {
 		CategoryDescription: "Duel with the best",
 		CategoryPageTitle:   "Buy YuGiOh",
 	}}
-	if !reflect.DeepEqual(categories, want) {
+	if !slices.Equal(categories, want) {
 		t.Errorf("GetCategoriesDetails() = %+v, want %+v", categories, want)
 	}
 }
@@ -805,7 +805,7 @@ func TestListCategoryPrintings(t *testing.T) {
 		{PrintingID: 7, Name: "1st Edition", DisplayOrder: 1, ModifiedOn: "2026-01-02T00:00:00"},
 		{PrintingID: 8, Name: "Unlimited", DisplayOrder: 2, ModifiedOn: "2026-01-03T00:00:00"},
 	}
-	if !reflect.DeepEqual(printings, want) {
+	if !slices.Equal(printings, want) {
 		t.Errorf("ListCategoryPrintings() = %+v, want %+v", printings, want)
 	}
 }
@@ -834,7 +834,7 @@ func TestGetMarketPricesByProducts(t *testing.T) {
 		{ProductID: 101, LowPrice: 1.25, MarketPrice: 2.5, MidPrice: 3.75, HighPrice: 9.5, DirectLowPrice: 4.5, SubTypeName: "Normal"},
 		{ProductID: 205, LowPrice: 5.25, MarketPrice: 6.5, MidPrice: 7.75, HighPrice: 10.5, DirectLowPrice: 8.5, SubTypeName: "Foil"},
 	}
-	if !reflect.DeepEqual(prices, want) {
+	if !slices.Equal(prices, want) {
 		t.Errorf("GetMarketPricesByProducts() = %+v, want %+v", prices, want)
 	}
 }
@@ -863,7 +863,7 @@ func TestGetMarketPricesBySKUs(t *testing.T) {
 		{SKUID: 1010, LowPrice: 1.5, LowestShipping: 0.99, LowestListingPrice: 1.49, MarketPrice: 2.25, DirectLowPrice: 1.75},
 		{SKUID: 2050, LowPrice: 3.5, LowestShipping: 1.99, LowestListingPrice: 3.49, MarketPrice: 4.25, DirectLowPrice: 3.75},
 	}
-	if !reflect.DeepEqual(prices, want) {
+	if !slices.Equal(prices, want) {
 		t.Errorf("GetMarketPricesBySKUs() = %+v, want %+v", prices, want)
 	}
 }
@@ -939,7 +939,7 @@ func TestPrintingNames(t *testing.T) {
 		103: nil,
 		104: nil,
 	}
-	if got := dump.PrintingNames(); !reflect.DeepEqual(got, want) {
+	if got := dump.PrintingNames(); !maps.EqualFunc(got, want, slices.Equal) {
 		t.Errorf("PrintingNames() = %v, want %v", got, want)
 	}
 }
@@ -1073,7 +1073,7 @@ func TestSecondRejectionIsTheAnswer(t *testing.T) {
 	_, err := tcg.Get(context.Background(), CatalogProductsURL)
 	want := &APIError{StatusCode: http.StatusUnauthorized, Messages: []string{"Missing or invalid bearer token."}}
 	var got *APIError
-	if !errors.As(err, &got) || !reflect.DeepEqual(got, want) {
+	if !errors.As(err, &got) || got.StatusCode != want.StatusCode || !slices.Equal(got.Messages, want.Messages) {
 		t.Fatalf("Get() error = %#v, want %#v", err, want)
 	}
 	if got, want := [2]int64{tokens.Load(), calls.Load()}, [2]int64{2, 2}; got != want {
@@ -1205,7 +1205,7 @@ func TestRejectedRequestBodyIsSentAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || !reflect.DeepEqual(bodies, []string{"payload", "payload"}) {
+	if resp.StatusCode != http.StatusOK || !slices.Equal(bodies, []string{"payload", "payload"}) {
 		t.Errorf("RoundTrip() = %d with bodies %q, want 200 with the body sent twice", resp.StatusCode, bodies)
 	}
 
@@ -1273,19 +1273,19 @@ func TestProductTypesAreCopies(t *testing.T) {
 	want := slices.Clone(ProductTypes(CategoryMagic))
 	got := ProductTypes(CategoryMagic)
 	got[0] = "edited"
-	if again := ProductTypes(CategoryMagic); !reflect.DeepEqual(again, want) {
+	if again := ProductTypes(CategoryMagic); !slices.Equal(again, want) {
 		t.Errorf("ProductTypes(magic) after a caller edited its copy = %q, want %q", again, want)
 	}
 
 	wantAll := slices.Clone(AllProductTypes())
 	all := AllProductTypes()
 	all[0] = "edited"
-	if again := AllProductTypes(); !reflect.DeepEqual(again, wantAll) {
+	if again := AllProductTypes(); !slices.Equal(again, wantAll) {
 		t.Errorf("AllProductTypes() after a caller edited its copy = %q, want %q", again, wantAll)
 	}
 	unmapped := ProductTypes(-1)
 	unmapped[0] = "edited"
-	if again := ProductTypes(-1); !reflect.DeepEqual(again, wantAll) {
+	if again := ProductTypes(-1); !slices.Equal(again, wantAll) {
 		t.Errorf("ProductTypes(unlisted) after a caller edited its copy = %q, want %q", again, wantAll)
 	}
 }
@@ -1355,10 +1355,10 @@ func TestProductsWalksEveryPage(t *testing.T) {
 		}
 		got = append(got, product.ProductID)
 	}
-	if !reflect.DeepEqual(got, sequence(250)) {
+	if !slices.Equal(got, sequence(250)) {
 		t.Errorf("Products() yielded %d ids %v…, want 1 to 250 in order", len(got), got[:min(5, len(got))])
 	}
-	if !reflect.DeepEqual(*offsets, []int{0, 100, 200}) {
+	if !slices.Equal(*offsets, []int{0, 100, 200}) {
 		t.Errorf("pages asked for at offsets %v, want [0 100 200]", *offsets)
 	}
 }
@@ -1373,7 +1373,7 @@ func TestGroupsWalksEveryPage(t *testing.T) {
 		}
 		got = append(got, group.GroupID)
 	}
-	if !reflect.DeepEqual(got, sequence(120)) {
+	if !slices.Equal(got, sequence(120)) {
 		t.Errorf("Groups() yielded %d ids, want 1 to 120 in order", len(got))
 	}
 }
@@ -1433,7 +1433,7 @@ func TestProductsStopsWhenTheCallerDoes(t *testing.T) {
 			break
 		}
 	}
-	if !reflect.DeepEqual(*offsets, []int{0}) {
+	if !slices.Equal(*offsets, []int{0}) {
 		t.Errorf("pages asked for at offsets %v after the caller stopped, want [0]", *offsets)
 	}
 }
@@ -1481,4 +1481,23 @@ func TestProductsPageErrorEndsTheWalk(t *testing.T) {
 	if n != 100 {
 		t.Errorf("Products() yielded %d before failing, want the 100 of the first page", n)
 	}
+}
+
+// productEqual compares two products field by field, following the
+// pointer and the slices, which == cannot.
+func productEqual(a, b Product) bool {
+	return a.ProductID == b.ProductID &&
+		a.Name == b.Name &&
+		a.CleanName == b.CleanName &&
+		a.ImageURL == b.ImageURL &&
+		a.GroupID == b.GroupID &&
+		a.CategoryID == b.CategoryID &&
+		a.URL == b.URL &&
+		a.ModifiedOn == b.ModifiedOn &&
+		a.ImageCount == b.ImageCount &&
+		(a.PresaleInfo == nil) == (b.PresaleInfo == nil) &&
+		(a.PresaleInfo == nil || *a.PresaleInfo == *b.PresaleInfo) &&
+		a.ProductType == b.ProductType &&
+		slices.Equal(a.Skus, b.Skus) &&
+		slices.Equal(a.ExtendedData, b.ExtendedData)
 }

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -238,7 +237,10 @@ func TestDumpOutput(t *testing.T) {
 			product(205, "Cards"),
 		},
 	}
-	if got := decodeJSON(t, string(dump)); !reflect.DeepEqual(got, want) {
+	// Both sides are decoded json, which marshals with sorted keys, so equal
+	// documents give equal text.
+	got := decodeJSON(t, string(dump))
+	if indentJSON(got) != indentJSON(want) {
 		t.Errorf("dump =\n%s\nwant\n%s", indentJSON(got), indentJSON(want))
 	}
 }
