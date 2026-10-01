@@ -283,28 +283,37 @@ names its skus carry, ordered as the dump lists the category's printings.
 5. **Count the category with no filter** and compare (§8).
 6. Page every job across `-thread` workers, stamping each product with the
    type it answered to.
-7. Sort by product id, encode, then check the collected counts (§8).
+7. Sort by product id and check everything collected (§8); only then
+   encode.
 
 ---
 
 ## 8. Invariants the dump enforces
 
-A run **fails and writes nothing** when any of these does not hold:
+A run **fails and writes nothing** when any of these does not hold. All of
+them are checked before the first byte of JSON is written.
 
 - **The known types account for the whole category.** `categoryTotal >
   totalProducts` means some type is missing from `ProductTypesByCategory`
   and its products would go undumped. This is the check that found
   Yu-Gi-Oh's missing 35.
-- **Every page came back.** `len(products) != totalProducts`, or
-  `len(groups) != totalgroups`, fails the run — a page that answers short
-  without an error is a loss the failed-page tally never sees.
-- **No page errored.** Failed pages are counted and named by offset.
+- **Every page came back whole.** No page may error, each page must hold
+  its share of its type's count, and the products and groups collected must
+  match the counts taken up front. A failed or mismatched page is named by
+  type and offset.
+- **Every product is there once and belongs somewhere.** No product repeats
+  within its type, no group repeats, every product's group is in the dump,
+  and the distinct product ids equal the unfiltered count. Counts alone
+  would let a duplicate stand in for the product it pushed out.
 - **The category exists.** An id serving no category stops the run rather
   than panicking on an empty slice.
+- **There is a worker.** A `-thread` below one is refused; no worker would
+  take a page and the run would hang.
 
 One condition **warns** rather than fails: `categoryTotal < totalProducts`
-means a product carries more than one type and will appear once per type.
-That is a duplicate, not a loss.
+means a product carries more than one type. It is fetched once per type and
+appears once per type in the dump, under the same id. None of the nightly
+categories did so in the 14 runs to 2026-09-30.
 
 Because the guards fail closed and the workflow uploads only on success, a
 failed dump leaves the previous good file in the bucket.
@@ -316,7 +325,8 @@ failed dump leaves the previous good file in the bucket.
 - **An empty result set is a 404**, not a zero count (§6.1).
 - **Product ids are allocated before public release.** An id lower than a
   dump's highest does not mean the product existed when the dump ran; check
-  `presaleInfo.releasedOn`.
+  `presaleInfo.releasedOn` on the API's product record. `Product` does not
+  decode it, so the dump does not carry it.
 - **`Rarity.DBValue` can carry stray whitespace**, where `DisplayText` does
   not. Yu-Gi-Oh's rarity 515 answers
   `{"displayText":"Prismatic Collector's Rare","dbValue":"Prismatic Collector's Rare "}`,
@@ -344,7 +354,8 @@ rely on:
 
 - Every `groupId`, `conditionId`, `languageId` and `printingId` a product or
   sku references resolves within the same file.
-- Product ids are unique within a dump, and products are sorted by id.
+- Products are sorted by id, and each id appears once, except a product
+  filed under two types, which appears once per type (§8).
 - Every product carries a non-empty `productType`, and
   `SinglesProductTypes`/`SealedProductTypes` classify it.
 - The JSON field names are the API's own, unchanged.
