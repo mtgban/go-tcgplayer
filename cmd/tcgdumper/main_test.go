@@ -296,3 +296,14 @@ func TestShortGroupPageFailsTheDump(t *testing.T) {
 		t.Errorf("stderr does not report the shortfall:\n%s", logged)
 	}
 }
+
+func TestInvalidWorkerCount(t *testing.T) {
+	for _, threads := range []string{"0", "-1"} {
+		t.Run(threads, func(t *testing.T) {
+			code, logged, _ := runDumperOutput(t, "-thread", threads)
+			if code == 0 || !strings.Contains(logged, "thread must be positive") {
+				t.Fatalf("exit %d: %s", code, logged)
+			}
+		})
+	}
+}

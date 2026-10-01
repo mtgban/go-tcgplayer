@@ -34,6 +34,11 @@ func run() int {
 		priKey = os.Getenv("TCGPLAYER_PRIVATE_KEY")
 	}
 
+	if *threadOpt < 1 {
+		fmt.Fprintln(os.Stderr, "thread must be positive")
+		return 1
+	}
+
 	if *categoryOpt == 0 {
 		fmt.Fprintln(os.Stderr, "Missing category id")
 		return 1
