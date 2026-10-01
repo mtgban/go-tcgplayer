@@ -310,3 +310,27 @@ func TestInvalidWorkerCount(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiPageProductIdentities(t *testing.T) {
+	ids := make([]int, tcgplayer.MaxItemsInResponse+3)
+	for i := range ids {
+		ids[i] = i + 1
+	}
+	serveCatalog(t, map[string][]int{"Cards": ids}, len(ids), 0)
+	code, logged, data := runDumperOutput(t)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, logged)
+	}
+	var dump tcgplayer.CatalogDump
+	if err := json.Unmarshal(data, &dump); err != nil {
+		t.Fatal(err)
+	}
+	if len(dump.Products) != len(ids) {
+		t.Fatalf("got %d products", len(dump.Products))
+	}
+	for i, p := range dump.Products {
+		if p.ProductID != ids[i] || p.ProductType != "Cards" || len(p.Skus) != 1 {
+			t.Errorf("product %d: %+v", i, p)
+		}
+	}
+}

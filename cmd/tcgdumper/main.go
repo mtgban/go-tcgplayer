@@ -106,6 +106,7 @@ func run() int {
 	type page struct {
 		productType string
 		offset      int
+		expected    int
 	}
 	var jobs []page
 	totalProducts := 0
@@ -121,7 +122,7 @@ func run() int {
 		fmt.Fprintln(os.Stderr, "Found", total, productType, "products")
 		totalProducts += total
 		for i := 0; i < total; i += tcgplayer.MaxItemsInResponse {
-			jobs = append(jobs, page{productType, i})
+			jobs = append(jobs, page{productType, i, min(tcgplayer.MaxItemsInResponse, total-i)})
 		}
 	}
 	fmt.Fprintln(os.Stderr, "Found", totalProducts, "products")
@@ -160,6 +161,9 @@ func run() int {
 				products, err := tcgClient.ListAllProducts(context.Background(), *categoryOpt, []string{job.productType}, true, job.offset)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, job.productType, "page at offset", job.offset, "failed:", err)
+					failedPages.Add(1)
+				} else if len(products) != job.expected {
+					fmt.Fprintf(os.Stderr, "%s page at offset %d: expected %d products but collected %d\n", job.productType, job.offset, job.expected, len(products))
 					failedPages.Add(1)
 				}
 				if done := donePages.Add(1); done%50 == 0 || done == int64(totalPages) {
