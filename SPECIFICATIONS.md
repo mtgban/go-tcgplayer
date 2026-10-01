@@ -165,18 +165,20 @@ names. The API publishes **no endpoint listing them**, and the names are
 **per game, not per platform**. A caller must therefore know them, and a
 caller that guesses loses products silently.
 
-`AllProductTypes` holds all **36** names in use across the platform,
+`AllProductTypes()` returns all **36** names in use across the platform,
 including some that differ only subtly — `Sealed Product` (six categories)
 is not `Sealed Products` (46).
 
 ### 5.2 The per-category vocabulary
 
 ```go
-var ProductTypesByCategory = map[int][]string{…}   // 72 entries
 func ProductTypes(category int) []string
+func AllProductTypes() []string
 ```
 
-Each of the 72 entries was read off the platform and **accounts for its
+Both return a copy of the package's tables, `productTypesByCategory` (72
+entries) and `allProductTypes`, so a caller editing what it was handed
+changes nothing for the next caller. Each of the 72 entries was read off the platform and **accounts for its
 category's entire product count**: the per-type totals sum exactly to the
 count taken with no filter. The remaining 20 categories are supplies,
 miniatures and Warhammer lines whose names the catalog and the search facets
@@ -184,7 +186,7 @@ both decline to expose, plus those serving no products at all.
 `ProductTypes` falls back to all 36 names for them, which is loud rather
 than safe — a caller counting its results finds the shortfall.
 
-A test requires every category to be either in the map or listed in
+A test requires every category to be either in the table or listed in
 `categoriesWithoutProductTypes` with a reason, so naming a category is a
 decision rather than an omission.
 
@@ -205,9 +207,6 @@ A category with nothing of one kind gets an **empty, non-nil** list: 19
 mapped categories sell no singles, and Epic sells nothing else. Empty and
 nil mean different things to the product endpoints (§6.1), so the
 difference is the contract, not a detail.
-
-`ProductTypesSingles` and `ProductTypesSealed` are the older, category-less
-pair, and are deprecated: they name Magic's types only. Use the functions.
 
 ---
 
@@ -333,7 +332,7 @@ A run **fails and writes nothing** when any of these does not hold. All of
 them are checked before the first byte of JSON is written.
 
 - **The known types account for the whole category.** `categoryTotal >
-  totalProducts` means some type is missing from `ProductTypesByCategory`
+  totalProducts` means some type is missing from `ProductTypes(category)`
   and its products would go undumped. This is the check that found
   Yu-Gi-Oh's missing 35.
 - **Every page came back whole.** No page may error, each page must hold

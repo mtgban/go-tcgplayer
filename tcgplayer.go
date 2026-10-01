@@ -143,10 +143,10 @@ const (
 	categoryCount
 )
 
-// AllProductTypes lists every product type name the platform uses. No
+// allProductTypes lists every product type name the platform uses. No
 // category files products under all of them; ProductTypes reports the ones
 // a given category actually uses.
-var AllProductTypes = []string{
+var allProductTypes = []string{
 	"3D Tokens",
 	"3x Magic Booster Packs",
 	"All 5 Intro Packs",
@@ -185,44 +185,14 @@ var AllProductTypes = []string{
 	"YGO Start Decks",
 }
 
-// ProductTypesSingles lists the product type holding single cards for the
-// categories that name it the common way.
-//
-// Deprecated: use SinglesProductTypes, which answers for the categories that
-// name their singles after themselves too. Asking those for Cards finds
-// nothing.
-var ProductTypesSingles = []string{"Cards"}
-
-// ProductTypesSealed lists the sealed product types Magic files products
-// under.
-//
-// Deprecated: use SealedProductTypes. Each category files sealed products
-// under its own set of types, and a type missing from this list is one whose
-// products go unseen: Yu-Gi-Oh's Tin and YGO Start Decks are two.
-var ProductTypesSealed = []string{
-	"Booster Box",
-	"Booster Pack",
-	"Sealed Products",
-	"Intro Pack",
-	"Fat Pack",
-	"Box Sets",
-	"Precon/Event Decks",
-	"Magic Deck Pack",
-	"Magic Booster Box Case",
-	"All 5 Intro Packs",
-	"Intro Pack Display",
-	"3x Magic Booster Packs",
-	"Booster Battle Pack",
-}
-
-// ProductTypesByCategory holds the product types each category files its
+// productTypesByCategory holds the product types each category files its
 // products under. Asking for only these keeps a dump from paging types the
 // category never uses, and keeps it from missing the ones it does: the
 // entries below were read off the platform and each accounts for its
 // category's whole product count. Categories absent from the map are ones
 // whose vocabulary is not known; ProductTypes falls back to every name for
 // them, which a caller counting its results will find comes up short.
-var ProductTypesByCategory = map[int][]string{
+var productTypesByCategory = map[int][]string{
 	CategoryMagic:                         {"3x Magic Booster Packs", "All 5 Intro Packs", "Booster Battle Pack", "Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Intro Pack Display", "Magic Booster Box Case", "Magic Deck Pack", "Precon/Event Decks", "Sealed Products"},
 	CategoryYuGiOh:                        {"Booster Box", "Booster Pack", "Box Sets", "Cards", "Fat Pack", "Intro Pack", "Magic Booster Box Case", "Sealed Products", "Tin", "YGO Start Decks"},
 	CategoryPokemon:                       {"Cards", "Sealed Products"},
@@ -300,10 +270,17 @@ var ProductTypesByCategory = map[int][]string{
 // ProductTypes returns the product types the given category files its
 // products under, or every known type when the category is not listed.
 func ProductTypes(category int) []string {
-	if types, found := ProductTypesByCategory[category]; found {
-		return types
+	if types, found := productTypesByCategory[category]; found {
+		return slices.Clone(types)
 	}
-	return AllProductTypes
+	return AllProductTypes()
+}
+
+// AllProductTypes returns every product type name the platform uses. No
+// category files products under all of them, so it is not a filter for any
+// one category; ProductTypes is.
+func AllProductTypes() []string {
+	return slices.Clone(allProductTypes)
 }
 
 // isSinglesType reports whether a product type holds single cards. Most

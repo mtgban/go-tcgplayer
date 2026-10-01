@@ -99,7 +99,7 @@ func TestProductTypesPerCategory(t *testing.T) {
 	// An unlisted category falls back to every known name, which a caller
 	// counting its results will find comes up short rather than silently
 	// dumping nothing
-	if got := ProductTypes(-1); !reflect.DeepEqual(got, AllProductTypes) {
+	if got := ProductTypes(-1); !reflect.DeepEqual(got, allProductTypes) {
 		t.Errorf("ProductTypes(unlisted) = %q, want every known type", got)
 	}
 }
@@ -368,7 +368,7 @@ func TestTotalProducts(t *testing.T) {
 
 	tcg := newTestClient(t, mux)
 
-	total, err := tcg.TotalProducts(context.Background(), 3, ProductTypesSingles)
+	total, err := tcg.TotalProducts(context.Background(), 3, []string{"Cards"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +471,7 @@ func TestInts2Strings(t *testing.T) {
 	}
 }
 
-// categoriesWithoutProductTypes are the categories ProductTypesByCategory
+// categoriesWithoutProductTypes are the categories productTypesByCategory
 // leaves out, and why. A category in neither this nor the map is one nobody
 // decided about, which is how Palworld and Cyberpunk came to be dumped
 // against every product type name the platform has rather than their own two.
@@ -509,19 +509,19 @@ var categoriesWithoutProductTypes = map[int]string{
 // fails rather than leaving ProductTypes to fall back silently.
 func TestEveryCategoryIsAccountedFor(t *testing.T) {
 	for id := 1; id < categoryCount; id++ {
-		_, mapped := ProductTypesByCategory[id]
+		_, mapped := productTypesByCategory[id]
 		reason, excused := categoriesWithoutProductTypes[id]
 		switch {
 		case mapped && excused:
-			t.Errorf("category %d is in ProductTypesByCategory and also excused as %q, want one or the other", id, reason)
+			t.Errorf("category %d is in productTypesByCategory and also excused as %q, want one or the other", id, reason)
 		case !mapped && !excused:
-			t.Errorf("category %d names no product types: add them to ProductTypesByCategory, "+
+			t.Errorf("category %d names no product types: add them to productTypesByCategory, "+
 				"or say in categoriesWithoutProductTypes why it has none", id)
 		}
 	}
-	for id := range ProductTypesByCategory {
+	for id := range productTypesByCategory {
 		if id < 1 || id >= categoryCount {
-			t.Errorf("ProductTypesByCategory holds %d, which is not a category", id)
+			t.Errorf("productTypesByCategory holds %d, which is not a category", id)
 		}
 	}
 	for id := range categoriesWithoutProductTypes {
@@ -535,10 +535,10 @@ func TestEveryCategoryIsAccountedFor(t *testing.T) {
 // name the platform never answers to, which returns nothing and reads exactly
 // like a category that simply has none of that type.
 func TestProductTypesByCategoryIsWellFormed(t *testing.T) {
-	if !slices.IsSorted(AllProductTypes) {
-		t.Error("AllProductTypes is not sorted, so entries below cannot be checked against it by eye")
+	if !slices.IsSorted(allProductTypes) {
+		t.Error("allProductTypes is not sorted, so entries below cannot be checked against it by eye")
 	}
-	for id, types := range ProductTypesByCategory {
+	for id, types := range productTypesByCategory {
 		if len(types) == 0 {
 			t.Errorf("category %d maps to no product types; excuse it in categoriesWithoutProductTypes instead", id)
 		}
@@ -546,8 +546,8 @@ func TestProductTypesByCategoryIsWellFormed(t *testing.T) {
 			t.Errorf("category %d: product types are not sorted: %q", id, types)
 		}
 		for _, productType := range types {
-			if !slices.Contains(AllProductTypes, productType) {
-				t.Errorf("category %d names product type %q, which AllProductTypes does not list", id, productType)
+			if !slices.Contains(allProductTypes, productType) {
+				t.Errorf("category %d names product type %q, which allProductTypes does not list", id, productType)
 			}
 		}
 	}
@@ -960,7 +960,7 @@ func TestProductTypesForNoneAreEmpty(t *testing.T) {
 	if got := SealedProductTypes(CategoryEpic); got == nil || len(got) != 0 {
 		t.Errorf("SealedProductTypes(epic) = %#v, want an empty, non-nil list", got)
 	}
-	for id := range ProductTypesByCategory {
+	for id := range productTypesByCategory {
 		if SinglesProductTypes(id) == nil {
 			t.Errorf("SinglesProductTypes(%d) = nil, want a non-nil list", id)
 		}
@@ -1267,5 +1267,31 @@ func TestLateRejectionReusesTheReplacement(t *testing.T) {
 	}
 	if token != "test-token-2" || tokens.Load() != 2 {
 		t.Errorf("refreshToken() after a replacement = %q with %d fetches, want %q with 2", token, tokens.Load(), "test-token-2")
+	}
+}
+
+// TestProductTypesAreCopies keeps the tables behind ProductTypes and
+// AllProductTypes out of reach: a caller editing the list it was handed must
+// not change what the next caller gets.
+func TestProductTypesAreCopies(t *testing.T) {
+	// Held apart from anything ProductTypes hands out, or an edit through a
+	// shared array would change the expectation along with the result
+	want := slices.Clone(ProductTypes(CategoryMagic))
+	got := ProductTypes(CategoryMagic)
+	got[0] = "edited"
+	if again := ProductTypes(CategoryMagic); !reflect.DeepEqual(again, want) {
+		t.Errorf("ProductTypes(magic) after a caller edited its copy = %q, want %q", again, want)
+	}
+
+	wantAll := slices.Clone(AllProductTypes())
+	all := AllProductTypes()
+	all[0] = "edited"
+	if again := AllProductTypes(); !reflect.DeepEqual(again, wantAll) {
+		t.Errorf("AllProductTypes() after a caller edited its copy = %q, want %q", again, wantAll)
+	}
+	unmapped := ProductTypes(-1)
+	unmapped[0] = "edited"
+	if again := ProductTypes(-1); !reflect.DeepEqual(again, wantAll) {
+		t.Errorf("ProductTypes(unlisted) after a caller edited its copy = %q, want %q", again, wantAll)
 	}
 }
