@@ -662,8 +662,10 @@ func TestListAllProducts(t *testing.T) {
 		}
 		writeEnvelope(w, 201, `[{
 			"productId": 101, "name": "Dark Magician", "cleanName": "Dark Magician Clean",
-			"imageUrl": "https://example.com/101.jpg", "groupId": 10,
+			"imageUrl": "https://example.com/101.jpg", "groupId": 10, "categoryId": 2,
 			"url": "https://example.com/product/101", "modifiedOn": "2026-01-05T00:00:00",
+			"imageCount": 3,
+			"presaleInfo": {"isPresale": true, "releasedOn": "2026-10-23T00:00:00", "note": "Details may change"},
 			"extendedData": [
 				{"name": "Number", "displayName": "Card Number", "value": "LOB-005"},
 				{"name": "Rarity", "displayName": "Rarity", "value": "Ultra Rare"}
@@ -684,9 +686,16 @@ func TestListAllProducts(t *testing.T) {
 		CleanName:  "Dark Magician Clean",
 		ImageURL:   "https://example.com/101.jpg",
 		GroupID:    10,
+		CategoryID: 2,
 		URL:        "https://example.com/product/101",
 		ModifiedOn: "2026-01-05T00:00:00",
-		Skus:       []SKU{{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3}},
+		ImageCount: 3,
+		PresaleInfo: &PresaleInfo{
+			IsPresale:  true,
+			ReleasedOn: "2026-10-23T00:00:00",
+			Note:       "Details may change",
+		},
+		Skus: []SKU{{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3}},
 		ExtendedData: []extendedField{
 			{Name: "Number", DisplayName: "Card Number", Value: "LOB-005"},
 			{Name: "Rarity", DisplayName: "Rarity", Value: "Ultra Rare"},

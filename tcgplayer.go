@@ -809,8 +809,14 @@ type Product struct {
 	CleanName  string `json:"cleanName"`
 	ImageURL   string `json:"imageUrl"`
 	GroupID    int    `json:"groupId"`
+	CategoryID int    `json:"categoryId"`
 	URL        string `json:"url"`
 	ModifiedOn string `json:"modifiedOn"`
+	ImageCount int    `json:"imageCount"`
+
+	// Sent for every product, presale or not. Nil only in a dump written
+	// before the package decoded it.
+	PresaleInfo *PresaleInfo `json:"presaleInfo,omitempty"`
 
 	// Never returned by the API, which does not report the product type a
 	// product is filed under; tcgdumper stamps the type it fetched the
@@ -825,6 +831,15 @@ type Product struct {
 		DisplayName string `json:"displayName"`
 		Value       string `json:"value"`
 	} `json:"extendedData,omitempty"`
+}
+
+// PresaleInfo is a product's release status. ReleasedOn is set for presale
+// products and for some already released, and Note carries the storefront's
+// caveat on a presale, that details may change until release.
+type PresaleInfo struct {
+	IsPresale  bool   `json:"isPresale"`
+	ReleasedOn string `json:"releasedOn,omitempty"`
+	Note       string `json:"note,omitempty"`
 }
 
 // GetProductsDetails returns the details of the given products, at most
