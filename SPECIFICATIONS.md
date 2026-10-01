@@ -229,10 +229,11 @@ it fetched the product by. `Product.Extended(name)` reads one
 number (`Number`) and rarity (`Rarity`).
 
 `SKU` is one sellable variant: `SKUID`, `ProductID`, `LanguageID`,
-`PrintingID`, `ConditionID`. Every id in this package is a plain `int`
-today, which lets one be passed where another is meant; see
-`todo/typed-identifiers.md`. The three trailing ids are decoded by the
-category metadata listings, which is why the dump carries them.
+`PrintingID`, `ConditionID`. Every id in this package is a plain `int`,
+so nothing stops a product id being passed where a sku id is meant: the
+caller picks between `GetMarketPricesByProducts` and `GetMarketPricesBySKUs`.
+The three trailing ids are decoded by the category metadata listings, which
+is why the dump carries them.
 
 `Group` is a set or expansion. `Group.ReleaseDate()` returns `PublishedOn`
 without its time of day.
@@ -346,9 +347,7 @@ rely on:
 - Product ids are unique within a dump, and products are sorted by id.
 - Every product carries a non-empty `productType`, and
   `SinglesProductTypes`/`SealedProductTypes` classify it.
-- The JSON field names are the API's own, unchanged. Were the ids to gain
-  named Go types (`todo/typed-identifiers.md`), the wire format would not
-  move: a named type over `int` or `string` marshals identically.
+- The JSON field names are the API's own, unchanged.
 - A published dump is complete, because an incomplete one is never uploaded.
 
 Readers may **not** rely on:
