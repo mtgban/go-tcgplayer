@@ -262,7 +262,7 @@ func TestProductTypeOutsideTheKnownListFailsTheDump(t *testing.T) {
 	if code == 0 {
 		t.Errorf("exit = 0, want non-zero: two products were never fetched\n%s", logged)
 	}
-	if !strings.Contains(logged, "missing from ProductTypesByCategory") {
+	if !strings.Contains(logged, "missing from tcgplayer.ProductTypes(1)") {
 		t.Errorf("stderr does not name the cause:\n%s", logged)
 	}
 }

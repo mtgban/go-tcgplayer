@@ -100,7 +100,7 @@ A `nil` list means no filter at all, which returns every product in the category
 
 To know a walk found everything, compare it with `TotalProducts(ctx, category, nil)`. With no filter it counts products whose type no list names, which a count of the same names cannot see.
 
-`AllProductTypes` is every name in use across the platform, which makes it the wrong filter for any one category. `ProductTypesSingles` and `ProductTypesSealed` are deprecated: they name Magic's types only.
+`AllProductTypes()` is every name in use across the platform, which makes it the wrong filter for any one category. Every one of these functions returns a fresh list, so editing it affects no other caller.
 
 ---
 

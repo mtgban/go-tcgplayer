@@ -129,7 +129,7 @@ func run() int {
 
 	// The per-type totals have to account for the whole category. Counting
 	// with no filter at all is the only way to see a product whose type is
-	// missing from AllProductTypes: counting the union of that same list
+	// missing from tcgplayer.ProductTypes: counting the union of that same list
 	// cannot report what the list does not name.
 	categoryTotal, err := tcgClient.TotalProducts(context.Background(), *categoryOpt, nil)
 	if err != nil {
@@ -138,8 +138,8 @@ func run() int {
 	}
 	if categoryTotal > totalProducts {
 		fmt.Fprintf(os.Stderr, "the category holds %d products but its known types account for only %d, "+
-			"so some product type is missing from ProductTypesByCategory and its products would go undumped\n",
-			categoryTotal, totalProducts)
+			"so some product type is missing from tcgplayer.ProductTypes(%d) and its products would go undumped\n",
+			categoryTotal, totalProducts, *categoryOpt)
 		return 1
 	}
 	if categoryTotal < totalProducts {
