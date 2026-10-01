@@ -189,6 +189,11 @@ returns. The suffix form is not cosmetic: Dragon Ball Super, UniVersus,
 Final Fantasy and Star Wars Destiny name their singles after themselves, and
 asking those categories for `Cards` returns zero.
 
+A category with nothing of one kind gets an **empty, non-nil** list: 19
+mapped categories sell no singles, and Epic sells nothing else. Empty and
+nil mean different things to the product endpoints (§6.1), so the
+difference is the contract, not a detail.
+
 `ProductTypesSingles` and `ProductTypesSealed` are the older, category-less
 pair, and are deprecated: they name Magic's types only. Use the functions.
 
@@ -207,7 +212,7 @@ Three access shapes, with different rules:
 ### 6.1 Counts
 
 ```go
-TotalProducts(ctx, category, productTypes)   // nil productTypes = no filter
+TotalProducts(ctx, category, productTypes)   // nil = no filter; empty = error
 TotalGroups(ctx, category)
 TotalCategories(ctx)
 ```
@@ -215,6 +220,11 @@ TotalCategories(ctx)
 All three issue a `limit=1` query and read `TotalItems`. **`TotalProducts`
 with a nil filter is the only count that can see a product whose type is
 unknown**, which is what makes the dump's completeness check possible.
+
+`TotalProducts` and `ListAllProducts` refuse an empty, non-nil filter before
+sending anything. The API reads a missing filter as every product, so a
+caller asking for the singles of a category that has none would otherwise
+be handed the whole category.
 
 A 404 with an empty envelope is read as zero: the API reports an empty
 result set as not-found, and for a count that is the answer.

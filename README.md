@@ -96,7 +96,7 @@ Ask the package for a category's names instead of writing them out:
 - `SinglesProductTypes(category)` - the type holding its single cards
 - `SealedProductTypes(category)` - all the others
 
-A `nil` list means no filter at all, which returns every product in the category. `SinglesProductTypes` is `nil` for a category that sells no singles, such as supplies and storage, and `SealedProductTypes` is `nil` for one that sells only singles, such as Epic. Check before passing either on.
+A `nil` list means no filter at all, which returns every product in the category. An empty list is an error: `SinglesProductTypes` is empty for a category that sells no singles, such as supplies and storage, and `SealedProductTypes` is empty for one that sells only singles, such as Epic, so passing either on fails rather than quietly asking for everything.
 
 To know a walk found everything, compare it with `TotalProducts(ctx, category, nil)`. With no filter it counts products whose type no list names, which a count of the same names cannot see.
 
