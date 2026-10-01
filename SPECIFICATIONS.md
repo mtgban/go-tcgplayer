@@ -59,11 +59,17 @@ Every request passes through `authTransport.RoundTrip`, which:
 2. reads the cached token under an `RWMutex`, and refreshes when it is
    empty or within **five minutes** of expiry;
 3. clones the request and sets `Authorization: Bearer <token>` on the copy,
-   because a `RoundTripper` must not modify the request it is handed.
+   because a `RoundTripper` must not modify the request it is handed;
+4. on a **401**, replaces the token it sent, when that is still the token
+   held, and sends the request once more, rebuilding a body through
+   `GetBody`. A request whose body cannot be rebuilt gets the 401 back. A
+   second 401 is returned as the answer.
 
 Concurrent refreshes collapse onto a single fetch via
-`golang.org/x/sync/singleflight`, keyed `oauth_token`. The token request
-uses its own `retryablehttp.Client` so it is retried like any other call.
+`golang.org/x/sync/singleflight`, keyed `oauth_token`. The fetch re-checks the
+held token first, so requests rejected together, or one arriving just after
+the replacement landed, cost one fetch between them. The token request uses its own `retryablehttp.Client` so it is retried
+like any other call.
 
 ### 2.3 Failure handling
 
@@ -72,6 +78,7 @@ uses its own `retryablehttp.Client` so it is retried like any other call.
 | Per-attempt timeout | 1 minute for the token client, 2 minutes for the API client |
 | Transient failures | `retryablehttp`'s default policy |
 | Token failures | wrapped in `tokenError`; the API client's `CheckRetry` refuses to retry them, so bad credentials fail in one fetch rather than five |
+| A token the server rejects (401) | replaced and the request sent once more (§2.2); a second 401 is an `*APIError` |
 | Non-2xx with an error envelope | `*APIError{StatusCode, Messages}` |
 | Non-2xx without one | `fmt.Errorf("http %d: %s", …)` |
 | A body that is not an envelope | the http status, when the request failed; otherwise the decode error wrapped with `%w` |
