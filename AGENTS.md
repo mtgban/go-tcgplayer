@@ -61,7 +61,10 @@ tables (92 categories, 72 product type vocabularies) and the endpoint
 wrappers, which are near-identical by design — each one counts its ids,
 builds a URL, calls `Get`, and decodes `Results` into its own slice. Resist
 collapsing them into a generic helper: the repetition is what lets a reader
-see one endpoint's whole behaviour without following a call chain.
+see one endpoint's whole behaviour without following a call chain. The one
+shared helper is `walkPages`, behind `Products` and `Groups`, because the
+checks it makes on every page are the point of walking and must not differ
+between the two.
 
 ## Build, test, format, lint
 

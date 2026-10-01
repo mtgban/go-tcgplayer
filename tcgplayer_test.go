@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1285,5 +1287,198 @@ func TestProductTypesAreCopies(t *testing.T) {
 	unmapped[0] = "edited"
 	if again := ProductTypes(-1); !reflect.DeepEqual(again, wantAll) {
 		t.Errorf("ProductTypes(unlisted) after a caller edited its copy = %q, want %q", again, wantAll)
+	}
+}
+
+// pagedCatalog serves a products listing and a groups listing holding ids,
+// counted as count and paged as the API pages them, and records the offset of
+// every page asked for. edit may change a page before it is served.
+func pagedCatalog(t *testing.T, ids []int, count int, edit func(offset int, page []int) []int) (*Client, *[]int) {
+	t.Helper()
+	var offsets []int
+	var mtx sync.Mutex
+	serve := func(w http.ResponseWriter, r *http.Request, item string) {
+		q := r.URL.Query()
+		if q.Get("limit") == "1" {
+			writeEnvelope(w, count, `[]`)
+			return
+		}
+		offset, err := strconv.Atoi(q.Get("offset"))
+		if err != nil {
+			t.Errorf("offset = %q, want a number", q.Get("offset"))
+		}
+		mtx.Lock()
+		offsets = append(offsets, offset)
+		mtx.Unlock()
+		page := ids[min(offset, len(ids)):min(offset+MaxItemsInResponse, len(ids))]
+		if edit != nil {
+			page = edit(offset, slices.Clone(page))
+		}
+		items := make([]string, 0, len(page))
+		for _, id := range page {
+			items = append(items, fmt.Sprintf(item, id))
+		}
+		writeEnvelope(w, count, "["+strings.Join(items, ",")+"]")
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("productTypes"); got != "Cards" {
+			t.Errorf("productTypes = %q, want %q", got, "Cards")
+		}
+		serve(w, r, `{"productId": %d}`)
+	})
+	mux.HandleFunc("/catalog/groups", func(w http.ResponseWriter, r *http.Request) {
+		serve(w, r, `{"groupId": %d}`)
+	})
+	return newTestClient(t, mux), &offsets
+}
+
+func sequence(n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = i + 1
+	}
+	return out
+}
+
+func TestProductsWalksEveryPage(t *testing.T) {
+	tcg, offsets := pagedCatalog(t, sequence(250), 250, nil)
+
+	var got []int
+	for product, err := range tcg.Products(context.Background(), 1, []string{"Cards"}, false) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, product.ProductID)
+	}
+	if !reflect.DeepEqual(got, sequence(250)) {
+		t.Errorf("Products() yielded %d ids %v…, want 1 to 250 in order", len(got), got[:min(5, len(got))])
+	}
+	if !reflect.DeepEqual(*offsets, []int{0, 100, 200}) {
+		t.Errorf("pages asked for at offsets %v, want [0 100 200]", *offsets)
+	}
+}
+
+func TestGroupsWalksEveryPage(t *testing.T) {
+	tcg, _ := pagedCatalog(t, sequence(120), 120, nil)
+
+	var got []int
+	for group, err := range tcg.Groups(context.Background(), 1) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, group.GroupID)
+	}
+	if !reflect.DeepEqual(got, sequence(120)) {
+		t.Errorf("Groups() yielded %d ids, want 1 to 120 in order", len(got))
+	}
+}
+
+// walkErr walks seq to its end and returns how many items came before the
+// error that ended it, and that error.
+func walkErr[T any](seq iter.Seq2[T, error]) (int, error) {
+	n := 0
+	for _, err := range seq {
+		if err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+func TestProductsShortPageIsAnError(t *testing.T) {
+	// The count promises 150, the second page hands back 40 of its 50
+	tcg, _ := pagedCatalog(t, sequence(140), 150, nil)
+
+	n, err := walkErr(tcg.Products(context.Background(), 1, []string{"Cards"}, false))
+	if err == nil || !strings.Contains(err.Error(), "offset 100 holds 40 items, want 50") {
+		t.Errorf("Products() error = %v, want the short page at offset 100 named", err)
+	}
+	if n != 100 {
+		t.Errorf("Products() yielded %d before failing, want the 100 of the whole first page", n)
+	}
+}
+
+// A product added before the walk's position and another removed after it
+// shift a page: one product is served twice and another never, and every
+// count still matches.
+func TestProductsRepeatedIDIsAnError(t *testing.T) {
+	tcg, _ := pagedCatalog(t, sequence(150), 150, func(offset int, page []int) []int {
+		if offset == 100 {
+			page[0] = 100
+		}
+		return page
+	})
+
+	_, err := walkErr(tcg.Products(context.Background(), 1, []string{"Cards"}, false))
+	if err == nil || !strings.Contains(err.Error(), "id 100 appears twice") {
+		t.Errorf("Products() error = %v, want the repeated id named", err)
+	}
+}
+
+func TestProductsStopsWhenTheCallerDoes(t *testing.T) {
+	tcg, offsets := pagedCatalog(t, sequence(250), 250, nil)
+
+	n := 0
+	for _, err := range tcg.Products(context.Background(), 1, []string{"Cards"}, false) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n++; n == 5 {
+			break
+		}
+	}
+	if !reflect.DeepEqual(*offsets, []int{0}) {
+		t.Errorf("pages asked for at offsets %v after the caller stopped, want [0]", *offsets)
+	}
+}
+
+func TestProductsCountErrorEndsTheWalk(t *testing.T) {
+	tcg := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request to %s", r.URL)
+	}))
+
+	n, err := walkErr(tcg.Products(context.Background(), 1, []string{}, false))
+	if n != 0 || !errors.Is(err, errNoProductTypes) {
+		t.Errorf("Products() with no types = %d items, error %v; want none and %v", n, err, errNoProductTypes)
+	}
+}
+
+func TestProductsPageErrorEndsTheWalk(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		writeToken(w, 86400)
+	})
+	mux.HandleFunc("/catalog/products", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case q.Get("limit") == "1":
+			writeEnvelope(w, 150, `[]`)
+		case q.Get("offset") == "100":
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"success": false, "errors": ["The page was refused."], "results": []}`)
+		default:
+			items := make([]string, 0, MaxItemsInResponse)
+			for id := 1; id <= MaxItemsInResponse; id++ {
+				items = append(items, fmt.Sprintf(`{"productId": %d}`, id))
+			}
+			writeEnvelope(w, 150, "["+strings.Join(items, ",")+"]")
+		}
+	})
+
+	tcg := newTestClient(t, mux)
+
+	n, err := walkErr(tcg.Products(context.Background(), 1, nil, false))
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusBadRequest {
+		t.Errorf("Products() error = %v, want the refused page's %d", err, http.StatusBadRequest)
+	}
+	if n != 100 {
+		t.Errorf("Products() yielded %d before failing, want the 100 of the first page", n)
 	}
 }

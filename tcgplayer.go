@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
 	"slices"
@@ -947,6 +948,70 @@ func (tcg *Client) ListAllCategoryGroups(ctx context.Context, category, offset i
 	}
 
 	return out, nil
+}
+
+// Products walks every product of a category narrowed to productTypes, nil
+// for every product, as ListAllProducts pages them. It counts first and checks
+// each page against its share of that count, and each product id against
+// those already yielded, so a page answering short, or a shift that repeats
+// one product in place of another, ends the walk with an error rather than
+// passing for a whole category. An error ends the walk: what was yielded
+// before it is not the whole set.
+func (tcg *Client) Products(ctx context.Context, category int, productTypes []string, includeSkus bool) iter.Seq2[Product, error] {
+	return func(yield func(Product, error) bool) {
+		total, err := tcg.TotalProducts(ctx, category, productTypes)
+		if err != nil {
+			yield(Product{}, err)
+			return
+		}
+		walkPages(total, func(offset int) ([]Product, error) {
+			return tcg.ListAllProducts(ctx, category, productTypes, includeSkus, offset)
+		}, func(p Product) int { return p.ProductID }, yield)
+	}
+}
+
+// Groups walks every group of a category as ListAllCategoryGroups pages
+// them, with the checks Products makes.
+func (tcg *Client) Groups(ctx context.Context, category int) iter.Seq2[Group, error] {
+	return func(yield func(Group, error) bool) {
+		total, err := tcg.TotalGroups(ctx, category)
+		if err != nil {
+			yield(Group{}, err)
+			return
+		}
+		walkPages(total, func(offset int) ([]Group, error) {
+			return tcg.ListAllCategoryGroups(ctx, category, offset)
+		}, func(g Group) int { return g.GroupID }, yield)
+	}
+}
+
+// walkPages yields the total items page fetches, a page of
+// MaxItemsInResponse at a time, failing on a page holding other than its
+// share of total or on an id seen before
+func walkPages[T any](total int, page func(offset int) ([]T, error), id func(T) int, yield func(T, error) bool) {
+	var zero T
+	seen := make(map[int]bool, total)
+	for offset := 0; offset < total; offset += MaxItemsInResponse {
+		items, err := page(offset)
+		if err != nil {
+			yield(zero, err)
+			return
+		}
+		if want := min(MaxItemsInResponse, total-offset); len(items) != want {
+			yield(zero, fmt.Errorf("page at offset %d holds %d items, want %d of %d", offset, len(items), want, total))
+			return
+		}
+		for _, item := range items {
+			if seen[id(item)] {
+				yield(zero, fmt.Errorf("id %d appears twice, so the listing shifted while it was paged", id(item)))
+				return
+			}
+			seen[id(item)] = true
+			if !yield(item, nil) {
+				return
+			}
+		}
+	}
 }
 
 // Category is a game or product line the catalog is split into, such as

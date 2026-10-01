@@ -73,12 +73,14 @@ Tokens are fetched from TCGplayer's `/token` endpoint using `grant_type=client_c
 - **Groups**
   - `ListAllCategoryGroups(ctx context.Context, category, offset int) ([]Group, error)`
   - `TotalGroups(ctx context.Context, category int) (int, error)`
+  - `Groups(ctx context.Context, category int) iter.Seq2[Group, error]`
 
 - **Products**
   - `GetProductsDetails(ctx context.Context, ids []int, includeSkus bool) ([]Product, error)`
   - `ListAllProducts(ctx context.Context, category int, productTypes []string, includeSkus bool, offset int) ([]Product, error)`
   - `ListProductSKUs(ctx context.Context, productID int) ([]SKU, error)`
   - `TotalProducts(ctx context.Context, category int, productTypes []string) (int, error)`
+  - `Products(ctx context.Context, category int, productTypes []string, includeSkus bool) iter.Seq2[Product, error]`
 
 - **Category metadata** (decodes the ids referenced by SKUs)
   - `ListCategoryPrintings(ctx context.Context, category int) ([]Printing, error)`
@@ -115,7 +117,16 @@ Each returns rows with the latest market pricing for the given IDs.
 
 ## Pagination & limits
 
-- **Offset + limit** paging. Pair each paged call with its count, `TotalProducts` or `TotalGroups`, and walk offsets `0, 100, 200, ...` in steps of `MaxItemsInResponse` (**100**). A page can answer short without an error, so check that what you collected adds up to the count.
+- **Offset + limit** paging. `Products` and `Groups` walk a whole listing: they count first, page in steps of `MaxItemsInResponse` (**100**), and end with an error when a page holds other than its share of the count or repeats an id, since a page can answer short without an error of its own. `ListAllProducts` and `ListAllCategoryGroups` fetch one page, for a caller that pages for itself.
+
+  ```go
+  for product, err := range c.Products(ctx, tcgplayer.CategoryLorcana, tcgplayer.SinglesProductTypes(tcgplayer.CategoryLorcana), true) {
+      if err != nil {
+          return err // what came before is not the whole category
+      }
+      // ...
+  }
+  ```
 - **Batched IDs**. Endpoints accept up to `MaxIDsInRequest` (**250**) IDs at a time. The client rejects more than that, and an empty list, before sending anything.
 
 ---
