@@ -47,3 +47,7 @@ warningCode = 1
 [rule.unreachable-code]
 [rule.var-declaration]
 [rule.var-naming]
+# Tests compare with slices and maps, or a comparison written for the type,
+# so a mismatch reads as the field that differs.
+[rule.imports-blocklist]
+  arguments = ["reflect"]

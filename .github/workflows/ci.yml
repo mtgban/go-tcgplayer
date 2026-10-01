@@ -19,7 +19,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Check formatting
-        run: test -z "$(gofmt -l .)"
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "these files are not gofmt-ed:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
@@ -34,6 +40,10 @@ jobs:
       # release finding new things would fail a build that changed nothing.
       - name: Staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
+
+      # Not pinned: the verdict follows the vulnerability database.
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
       - name: Build
         run: go build ./...
