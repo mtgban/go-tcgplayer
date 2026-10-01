@@ -51,7 +51,7 @@ tcgplayer_test.go       the client's tests: endpoints against httptest,
                         and the dump helpers
 cmd/tcgdumper/          the dump program and its end-to-end tests
 .revive.toml            the lint rules, shared with go-mtgban
-.github/workflows/ci.yml            gofmt, vet, revive, staticcheck, build, test
+.github/workflows/ci.yml            gofmt, vet, revive, staticcheck, govulncheck, build, test
 .github/workflows/catalog-dump.yml  the nightly dump and its B2 upload
 .github/dependabot.yml              weekly action and Go module updates
 ```
@@ -69,17 +69,20 @@ between the two.
 ## Build, test, format, lint
 
 ```sh
-gofmt -l .                                      # must print nothing
+gofmt -s -l .                                   # must print nothing
 go vet ./...
 go run github.com/mgechev/revive@v1.13.0 -set_exit_status -config .revive.toml ./...
 go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 go build ./...
 go test -race ./...
 ```
 
 That is exactly what `ci.yml` runs on every push and pull request. Run all
 of it before committing; the lint rules are the set go-mtgban holds itself
-to, so a habit picked up in one repo reads the same in the other.
+to, so a habit picked up in one repo reads the same in the other. That
+includes no `reflect`: compare with `slices`/`maps` or a comparison written
+for the type.
 
 ## How the client works
 
