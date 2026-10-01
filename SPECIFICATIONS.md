@@ -110,16 +110,18 @@ error on **any** non-2xx — an earlier version returned a failed response as
 success whenever the envelope's `errors` array was empty, which callers read
 as an empty result set.
 
-### 3.1 The completeness check on single-call listings
+### 3.1 Single-call listings
 
-Four category listings and `ListProductSKUs` answer in one call with no
-offset to page for a remainder. For those, `checkComplete` compares
-`len(results)` against `TotalItems` and errors when the endpoint reported
-more than it returned. An endpoint that leaves `totalItems` unset decodes to
-zero and cannot trip it, so the check has no false positives.
+Four category listings and `ListProductSKUs` answer in one call. They send
+no `totalItems` and ignore `limit` and `offset`, returning the whole list
+whatever is asked: Yu-Gi-Oh's 39 rarities come back whole with `limit=2`,
+with `offset=2&limit=2` and with `limit=500`, and the same holds across
+Magic, Pokémon, One Piece, Flesh and Blood and Lorcana (checked
+2026-10-01). With no count in the response there is nothing to check these
+against, and 39 is the longest list seen.
 
-This is **not** applied to `ListAllProducts` or `ListAllCategoryGroups`,
-where `TotalItems` is the total across all pages by design.
+`ListAllProducts` and `ListAllCategoryGroups` are different: they page, and
+their `TotalItems` is the total across all pages.
 
 ---
 
@@ -217,7 +219,7 @@ Three access shapes, with different rules:
 | --- | --- | --- |
 | **Paged** | `ListAllProducts`, `ListAllCategoryGroups` | `offset` + `limit`, `limit` = `MaxItemsInResponse` (**100**). Pair with the matching `Total*` call to walk the whole set. |
 | **Batched by id** | `GetProductsDetails`, `GetCategoriesDetails`, `GetMarketPricesByProducts`, `GetMarketPricesBySKUs` | At most `MaxIDsInRequest` (**250**) ids, rejected early. An empty list is also rejected: it would otherwise request the bare endpoint and return an opaque API error. |
-| **Single call** | `ListCategoryPrintings`, `ListCategoryConditions`, `ListCategoryLanguages`, `ListCategoryRarities`, `ListProductSKUs` | No paging; guarded by `checkComplete` (§3.1). |
+| **Single call** | `ListCategoryPrintings`, `ListCategoryConditions`, `ListCategoryLanguages`, `ListCategoryRarities`, `ListProductSKUs` | No paging and no count: the API returns the whole list (§3.1). |
 
 ### 6.1 Counts
 

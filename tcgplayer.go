@@ -685,17 +685,6 @@ func checkProductTypes(productTypes []string) error {
 	return nil
 }
 
-// checkComplete reports a listing that answered with fewer items than it
-// counted. The endpoints below do not paginate, so a short answer drops
-// entries with nothing to page for the rest; endpoints that leave totalItems
-// unset count as zero here and cannot trip it.
-func checkComplete(resp *BaseResponse, got int) error {
-	if resp.TotalItems > got {
-		return fmt.Errorf("listing returned %d of %d items", got, resp.TotalItems)
-	}
-	return nil
-}
-
 // Printing is a finish a category's cards are printed in, such as Foil
 type Printing struct {
 	PrintingID   int    `json:"printingId"`
@@ -714,9 +703,6 @@ func (tcg *Client) ListCategoryPrintings(ctx context.Context, category int) ([]P
 	var out []Printing
 	err = json.Unmarshal(resp.Results, &out)
 	if err != nil {
-		return nil, err
-	}
-	if err := checkComplete(resp, len(out)); err != nil {
 		return nil, err
 	}
 
@@ -743,9 +729,6 @@ func (tcg *Client) ListCategoryConditions(ctx context.Context, category int) ([]
 	if err != nil {
 		return nil, err
 	}
-	if err := checkComplete(resp, len(out)); err != nil {
-		return nil, err
-	}
 
 	return out, nil
 }
@@ -769,9 +752,6 @@ func (tcg *Client) ListCategoryLanguages(ctx context.Context, category int) ([]L
 	if err != nil {
 		return nil, err
 	}
-	if err := checkComplete(resp, len(out)); err != nil {
-		return nil, err
-	}
 
 	return out, nil
 }
@@ -793,9 +773,6 @@ func (tcg *Client) ListCategoryRarities(ctx context.Context, category int) ([]Ra
 	var out []Rarity
 	err = json.Unmarshal(resp.Results, &out)
 	if err != nil {
-		return nil, err
-	}
-	if err := checkComplete(resp, len(out)); err != nil {
 		return nil, err
 	}
 
@@ -944,9 +921,6 @@ func (tcg *Client) ListProductSKUs(ctx context.Context, productID int) ([]SKU, e
 	var out []SKU
 	err = json.Unmarshal(resp.Results, &out)
 	if err != nil {
-		return nil, err
-	}
-	if err := checkComplete(resp, len(out)); err != nil {
 		return nil, err
 	}
 
