@@ -604,14 +604,6 @@ func TestRoundTripLeavesTheRequestAlone(t *testing.T) {
 	}
 }
 
-// extendedField is the element type of Product.ExtendedData, which is an
-// unnamed struct; an alias lets the tests below spell it.
-type extendedField = struct {
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName"`
-	Value       string `json:"value"`
-}
-
 // The fixtures from here on set every field of the type they decode into, each
 // to a value no other field in the object shares, so a tag naming the wrong
 // field fails as surely as a tag naming none.
@@ -671,7 +663,7 @@ func TestListAllProducts(t *testing.T) {
 			Note:       "Details may change",
 		},
 		Skus: []SKU{{SKUID: 1010, ProductID: 101, LanguageID: 1, PrintingID: 2, ConditionID: 3}},
-		ExtendedData: []extendedField{
+		ExtendedData: []ExtendedField{
 			{Name: "Number", DisplayName: "Card Number", Value: "LOB-005"},
 			{Name: "Rarity", DisplayName: "Rarity", Value: "Ultra Rare"},
 		},
