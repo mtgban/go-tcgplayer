@@ -23,7 +23,8 @@ const (
 	categoryJSON = `{"categoryId": 1, "name": "Test", "modifiedOn": "2026-01-01T00:00:00",
 		"displayName": "Test Game", "seoCategoryName": "test-game", "sealedLabel": "Sealed",
 		"nonSealedLabel": "Singles", "conditionGuideUrl": "https://example.com/guide",
-		"isScannable": true, "popularity": 42}`
+		"isScannable": true, "popularity": 42, "isDirect": true,
+		"categoryDescription": "A test game", "categoryPageTitle": "Buy Test Game"}`
 	conditionsJSON = `[{"conditionId": 3, "name": "Near Mint", "abbreviation": "NM", "displayOrder": 4}]`
 	languagesJSON  = `[{"languageId": 1, "name": "English", "abbr": "EN"}]`
 	printingsJSON  = `[{"printingId": 2, "name": "Foil", "displayOrder": 5, "modifiedOn": "2026-01-02T00:00:00"}]`

@@ -19,9 +19,8 @@ documentation. They encode one reading of the docs, not what the platform
 sends. A field transcribed wrongly would be agreed with by both the fixture
 and the struct, and the suite would stay green.
 
-A recording also shows what the structs leave out. The API sends
-`categoryDescription`, `categoryPageTitle` and `isDirect` with a category and
-`highPrice` with a product's prices, and none of them is decoded.
+A recording also shows a key the API sends that no struct decodes, which a
+hand-written fixture cannot, since it holds only the keys its writer knew.
 
 ## Proposal
 

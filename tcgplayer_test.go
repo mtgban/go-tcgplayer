@@ -757,7 +757,8 @@ func TestGetCategoriesDetails(t *testing.T) {
 			"categoryId": 2, "name": "YuGiOh", "modifiedOn": "2026-01-01T00:00:00",
 			"displayName": "YuGiOh Display", "seoCategoryName": "yugioh-seo",
 			"sealedLabel": "Sealed Label", "nonSealedLabel": "Singles Label",
-			"conditionGuideUrl": "https://example.com/guide", "isScannable": true, "popularity": 42
+			"conditionGuideUrl": "https://example.com/guide", "isScannable": true, "popularity": 42,
+			"isDirect": true, "categoryDescription": "Duel with the best", "categoryPageTitle": "Buy YuGiOh"
 		}]`)
 	})
 
@@ -778,6 +779,10 @@ func TestGetCategoriesDetails(t *testing.T) {
 		ConditionGuideURL: "https://example.com/guide",
 		IsScannable:       true,
 		Popularity:        42,
+		IsDirect:          true,
+
+		CategoryDescription: "Duel with the best",
+		CategoryPageTitle:   "Buy YuGiOh",
 	}}
 	if !reflect.DeepEqual(categories, want) {
 		t.Errorf("GetCategoriesDetails() = %+v, want %+v", categories, want)
@@ -819,9 +824,9 @@ func TestGetMarketPricesByProducts(t *testing.T) {
 	mux.HandleFunc("/pricing/product/101,205", func(w http.ResponseWriter, r *http.Request) {
 		writeEnvelope(w, 2, `[
 			{"productId": 101, "lowPrice": 1.25, "marketPrice": 2.5, "midPrice": 3.75,
-			 "directLowPrice": 4.5, "subTypeName": "Normal"},
+			 "highPrice": 9.5, "directLowPrice": 4.5, "subTypeName": "Normal"},
 			{"productId": 205, "lowPrice": 5.25, "marketPrice": 6.5, "midPrice": 7.75,
-			 "directLowPrice": 8.5, "subTypeName": "Foil"}
+			 "highPrice": 10.5, "directLowPrice": 8.5, "subTypeName": "Foil"}
 		]`)
 	})
 
@@ -832,8 +837,8 @@ func TestGetMarketPricesByProducts(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []ProductPriceSet{
-		{ProductID: 101, LowPrice: 1.25, MarketPrice: 2.5, MidPrice: 3.75, DirectLowPrice: 4.5, SubTypeName: "Normal"},
-		{ProductID: 205, LowPrice: 5.25, MarketPrice: 6.5, MidPrice: 7.75, DirectLowPrice: 8.5, SubTypeName: "Foil"},
+		{ProductID: 101, LowPrice: 1.25, MarketPrice: 2.5, MidPrice: 3.75, HighPrice: 9.5, DirectLowPrice: 4.5, SubTypeName: "Normal"},
+		{ProductID: 205, LowPrice: 5.25, MarketPrice: 6.5, MidPrice: 7.75, HighPrice: 10.5, DirectLowPrice: 8.5, SubTypeName: "Foil"},
 	}
 	if !reflect.DeepEqual(prices, want) {
 		t.Errorf("GetMarketPricesByProducts() = %+v, want %+v", prices, want)
