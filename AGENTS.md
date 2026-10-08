@@ -198,7 +198,7 @@ weeks later they held 264 and 422 products.
   standard-library import with "export data version N is greater than
   maximum supported version". `2026.2.1` reads 1.26 and 1.27. CI follows
   `go.mod` — `setup-go` reads `go-version-file` and runs its `toolchain`
-  line, go1.26.8 — so when a local run fails that way and nothing else does,
+  line, go1.26.9 — so when a local run fails that way and nothing else does,
   the pin needs a newer release; the code is fine.
 - **`gh run list --commit <short-sha>` silently returns nothing.** Use the
   full sha or query the workflow. A poll built on the short form waits
